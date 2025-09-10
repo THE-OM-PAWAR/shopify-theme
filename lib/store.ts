@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem } from './types';
+import { shopifyFetch } from './shopify';
+import { CREATE_CART_MUTATION, ADD_TO_CART_MUTATION, UPDATE_CART_MUTATION, GET_CART_QUERY } from './queries';
 
 interface CartStore {
   cartId: string | null;
@@ -10,22 +12,44 @@ interface CartStore {
   totalPrice: number;
   currencyCode: string;
   checkoutUrl: string | null;
+  isLoading: boolean;
   
   // Actions
-  setCartId: (cartId: string) => void;
-  addItem: (item: CartItem) => void;
-  removeItem: (variantId: string) => void;
-  updateItemQuantity: (variantId: string, quantity: number) => void;
+  addToCart: (variantId: string, quantity: number) => Promise<void>;
+  updateCartItem: (variantId: string, quantity: number) => Promise<void>;
+  removeFromCart: (variantId: string) => Promise<void>;
   clearCart: () => void;
   openCart: () => void;
   closeCart: () => void;
-  setCheckoutUrl: (url: string) => void;
+  refreshCart: () => Promise<void>;
 }
 
-const calculateTotals = (items: CartItem[]) => {
+const parseCartData = (cart: any): { items: CartItem[], totalQuantity: number, totalPrice: number, currencyCode: string, checkoutUrl: string } => {
+  const items: CartItem[] = cart.lines.edges.map((edge: any) => {
+    const line = edge.node;
+    const variant = line.merchandise;
+    const product = variant.product;
+    
+    return {
+      id: line.id,
+      variantId: variant.id,
+      productId: product.id,
+      title: product.title,
+      variantTitle: variant.title !== 'Default Title' ? variant.title : '',
+      price: variant.price.amount,
+      currencyCode: variant.price.currencyCode,
+      image: product.images.edges[0]?.node.url || null,
+      quantity: line.quantity,
+      maxQuantity: 10,
+    };
+  });
+
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
-  return { totalQuantity, totalPrice };
+  const totalPrice = parseFloat(cart.cost.totalAmount.amount);
+  const currencyCode = cart.cost.totalAmount.currencyCode;
+  const checkoutUrl = cart.checkoutUrl;
+
+  return { items, totalQuantity, totalPrice, currencyCode, checkoutUrl };
 };
 
 export const useCartStore = create<CartStore>()(
@@ -38,63 +62,140 @@ export const useCartStore = create<CartStore>()(
       totalPrice: 0,
       currencyCode: 'USD',
       checkoutUrl: null,
+      isLoading: false,
 
-      setCartId: (cartId: string) => set({ cartId }),
+      addToCart: async (variantId: string, quantity: number) => {
+        set({ isLoading: true });
+        try {
+          const state = get();
+          
+          if (!state.cartId) {
+            // Create new cart
+            const response = await shopifyFetch({
+              query: CREATE_CART_MUTATION,
+              variables: {
+                input: {
+                  lines: [{ merchandiseId: variantId, quantity }]
+                }
+              }
+            });
 
-      addItem: (newItem: CartItem) => set((state) => {
-        const existingItem = state.items.find(item => item.variantId === newItem.variantId);
-        let updatedItems;
-        
-        if (existingItem) {
-          updatedItems = state.items.map(item =>
-            item.variantId === newItem.variantId
-              ? { ...item, quantity: Math.min(item.quantity + newItem.quantity, item.maxQuantity) }
-              : item
-          );
-        } else {
-          updatedItems = [...state.items, newItem];
+            if (response.data?.cartCreate?.cart) {
+              const cart = response.data.cartCreate.cart;
+              const { items, totalQuantity, totalPrice, currencyCode, checkoutUrl } = parseCartData(cart);
+              
+              set({
+                cartId: cart.id,
+                items,
+                totalQuantity,
+                totalPrice,
+                currencyCode,
+                checkoutUrl,
+                isOpen: true,
+              });
+            }
+          } else {
+            // Add to existing cart
+            const response = await shopifyFetch({
+              query: ADD_TO_CART_MUTATION,
+              variables: {
+                cartId: state.cartId,
+                lines: [{ merchandiseId: variantId, quantity }]
+              }
+            });
+
+            if (response.data?.cartLinesAdd?.cart) {
+              const cart = response.data.cartLinesAdd.cart;
+              const { items, totalQuantity, totalPrice, currencyCode, checkoutUrl } = parseCartData(cart);
+              
+              set({
+                items,
+                totalQuantity,
+                totalPrice,
+                currencyCode,
+                checkoutUrl,
+                isOpen: true,
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error adding to cart:', error);
+          throw error;
+        } finally {
+          set({ isLoading: false });
         }
-        
-        const { totalQuantity, totalPrice } = calculateTotals(updatedItems);
-        
-        return {
-          items: updatedItems,
-          totalQuantity,
-          totalPrice,
-          currencyCode: newItem.currencyCode,
-        };
-      }),
+      },
 
-      removeItem: (variantId: string) => set((state) => {
-        const updatedItems = state.items.filter(item => item.variantId !== variantId);
-        const { totalQuantity, totalPrice } = calculateTotals(updatedItems);
-        
-        return {
-          items: updatedItems,
-          totalQuantity,
-          totalPrice,
-        };
-      }),
+      updateCartItem: async (variantId: string, quantity: number) => {
+        const state = get();
+        if (!state.cartId) return;
 
-      updateItemQuantity: (variantId: string, quantity: number) => set((state) => {
-        if (quantity <= 0) {
-          return get().removeItem(variantId);
+        set({ isLoading: true });
+        try {
+          const lineItem = state.items.find(item => item.variantId === variantId);
+          if (!lineItem) return;
+
+          const response = await shopifyFetch({
+            query: UPDATE_CART_MUTATION,
+            variables: {
+              cartId: state.cartId,
+              lines: [{ id: lineItem.id, quantity }]
+            }
+          });
+
+          if (response.data?.cartLinesUpdate?.cart) {
+            const cart = response.data.cartLinesUpdate.cart;
+            const { items, totalQuantity, totalPrice, currencyCode, checkoutUrl } = parseCartData(cart);
+            
+            set({
+              items,
+              totalQuantity,
+              totalPrice,
+              currencyCode,
+              checkoutUrl,
+            });
+          }
+        } catch (error) {
+          console.error('Error updating cart:', error);
+          throw error;
+        } finally {
+          set({ isLoading: false });
         }
-        
-        const updatedItems = state.items.map(item =>
-          item.variantId === variantId
-            ? { ...item, quantity: Math.min(quantity, item.maxQuantity) }
-            : item
-        );
-        
-        const { totalQuantity, totalPrice } = calculateTotals(updatedItems);
-        
-        return {
-          items: updatedItems,
-          totalQuantity,
-          totalPrice,
-        };
-      }),
+      },
+
+      removeFromCart: async (variantId: string) => {
+        await get().updateCartItem(variantId, 0);
+      },
+
+      refreshCart: async () => {
+        const state = get();
+        if (!state.cartId) return;
+
+        set({ isLoading: true });
+        try {
+          const response = await shopifyFetch({
+            query: GET_CART_QUERY,
+            variables: { cartId: state.cartId }
+          });
+
+          if (response.data?.cart) {
+            const cart = response.data.cart;
+            const { items, totalQuantity, totalPrice, currencyCode, checkoutUrl } = parseCartData(cart);
+            
+            set({
+              items,
+              totalQuantity,
+              totalPrice,
+              currencyCode,
+              checkoutUrl,
+            });
+          }
+        } catch (error) {
+          console.error('Error refreshing cart:', error);
+        } finally {
+          set({ isLoading: false });
+        }
+      },
 
       clearCart: () => set({
         cartId: null,
@@ -106,10 +207,17 @@ export const useCartStore = create<CartStore>()(
 
       openCart: () => set({ isOpen: true }),
       closeCart: () => set({ isOpen: false }),
-      setCheckoutUrl: (url: string) => set({ checkoutUrl: url }),
     }),
     {
       name: 'cart-storage',
+      partialize: (state) => ({
+        cartId: state.cartId,
+        items: state.items,
+        totalQuantity: state.totalQuantity,
+        totalPrice: state.totalPrice,
+        currencyCode: state.currencyCode,
+        checkoutUrl: state.checkoutUrl,
+      }),
     }
   )
 );

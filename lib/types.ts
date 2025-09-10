@@ -29,6 +29,11 @@ export interface ShopifyProduct {
       node: ShopifyProductVariant;
     }>;
   };
+  options: Array<{
+    id: string;
+    name: string;
+    values: string[];
+  }>;
 }
 
 export interface ShopifyProductVariant {
@@ -70,9 +75,11 @@ export interface ShopifyCollection {
 }
 
 export interface CartItem {
+  id: string;
   variantId: string;
   productId: string;
   title: string;
+  variantTitle: string;
   price: string;
   currencyCode: string;
   image: string | null;

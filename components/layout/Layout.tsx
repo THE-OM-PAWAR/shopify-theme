@@ -1,22 +1,33 @@
-import Header from './Header';
-import Footer from './Footer';
-import CartDrawer from '../cart/CartDrawer';
+'use client';
+
+import { useEffect } from 'react';
+import CartDrawer from '@/components/cart/CartDrawer';
+import Header from '@/components/layout/Header';
 import { Toaster } from 'react-hot-toast';
+import { useCartStore } from '@/lib/store';
+import Footer from '@/components/layout/Footer';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const { refreshCart } = useCartStore();
+
+  useEffect(() => {
+    // Refresh cart on app load
+    refreshCart();
+  }, [refreshCart]);
+
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <Header/>
       <main className="flex-1">
         {children}
       </main>
-      <Footer />
+      <Footer/>
       <CartDrawer />
-      <Toaster 
+      <Toaster
         position="bottom-right"
         toastOptions={{
           duration: 3000,
