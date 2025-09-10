@@ -8,7 +8,7 @@ import { useCartStore } from '@/lib/store';
 import Footer from '@/components/layout/Footer';
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children: React.ReactNode; 
 }
 
 export default function Layout({ children }: LayoutProps) {
