@@ -33,8 +33,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   const frameImageUrl = frameImageMetafield?.value;
   console.log('ProductCard - Frame image URL:', frameImageUrl);
   
-  // Only allow customization if we have a valid HTTP(S) URL, not a Shopify GID
-  const canCustomize = !!frameImageUrl && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'));
+  // Allow customization for all products (for testing)
+  const canCustomize = true;
   console.log('ProductCard - Can customize:', canCustomize);
   
   // Check if user has customized this product
@@ -48,12 +48,6 @@ export default function ProductCard({ product }: ProductCardProps) {
     console.log('Customize button clicked for product:', product.title);
     console.log('Frame image URL:', frameImageUrl);
     console.log('Can customize:', canCustomize);
-    
-    if (!canCustomize) {
-      console.error('Cannot customize product:', product.id, 'Frame image URL:', frameImageUrl);
-      toast.error('This product cannot be customized. Frame image not properly configured.');
-      return;
-    }
     
     console.log('Opening customization modal...');
     setIsCustomizationModalOpen(true);

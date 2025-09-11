@@ -56,7 +56,7 @@ export default function ImageCustomizationModal({
 
   // Load frame image
   useEffect(() => {
-    if (frameImageUrl && frameImageUrl !== 'https://via.placeholder.com/400x600/transparent') {
+    if (frameImageUrl && frameImageUrl !== 'https://via.placeholder.com/400x600/transparent' && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'))) {
       console.log('Loading frame image:', frameImageUrl);
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -66,7 +66,7 @@ export default function ImageCustomizationModal({
       };
       img.onerror = (error) => {
         console.error('Failed to load frame image:', frameImageUrl, error);
-        toast.error('Failed to load frame image. Using placeholder.');
+        console.log('Using placeholder frame instead');
         // Create a placeholder frame
         const placeholderImg = new Image();
         placeholderImg.onload = () => setFrameImage(placeholderImg);
