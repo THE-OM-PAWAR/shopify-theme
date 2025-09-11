@@ -441,51 +441,53 @@ export default function CheckoutPage() {
             
             {/* Cart Items */}
             <div className="space-y-4 mb-6">
-              {items.map((item) => (
+              {items.map((item) => {
                 // Check if this product has customization
                 const customization = getCustomization(item.productId);
-                      {displayImage && (
+                const displayImage = customization?.previewImage || item.image;
                 
-                <div key={item.id} className="flex items-start space-x-4">
+                return (
+                  <div key={item.id} className="flex items-start space-x-4">
+                    <div className="relative">
+                      {displayImage && (
+                        <div className="w-16 h-16 relative rounded-lg overflow-hidden bg-gray-100">
+                          <Image
                             src={displayImage}
-                    {item.image && (
-                      <div className="w-16 h-16 relative rounded-lg overflow-hidden bg-gray-100">
-                        <Image
-                          src={item.image}
-                          alt={item.title}
-                          fill
-                          className="object-cover"
-                          sizes="64px"
-                        />
-                      </div>
+                            alt={item.title}
+                            fill
+                            className="object-cover"
+                            sizes="64px"
+                          />
+                        </div>
+                      )}
                       {customization && (
                         <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-xs px-1 py-0.5 rounded">
                           Custom
                         </div>
                       )}
-                    )}
-                    <div className="absolute -top-2 -right-2 bg-gray-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {item.quantity}
+                      <div className="absolute -top-2 -right-2 bg-gray-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {item.quantity}
+                      </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm line-clamp-2">{item.title}</h3>
-                    {item.variantTitle && (
-                      <p className="text-xs text-gray-500">{item.variantTitle}</p>
+                    
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-sm line-clamp-2">{item.title}</h3>
+                      {item.variantTitle && (
+                        <p className="text-xs text-gray-500">{item.variantTitle}</p>
+                      )}
                       {customization && (
                         <p className="text-xs text-blue-600 font-medium">Customized Product</p>
                       )}
-                    )}
-                  </div>
+                    </div>
 
-                  <div className="text-right">
-                    <p className="font-semibold">
-                      ₹{(parseFloat(item.price) * item.quantity).toFixed(2)}
-                    </p>
+                    <div className="text-right">
+                      <p className="font-semibold">
+                        ₹{(parseFloat(item.price) * item.quantity).toFixed(2)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Pricing Breakdown */}
