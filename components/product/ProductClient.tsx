@@ -12,13 +12,12 @@ interface ProductClientProps {
 }
 
 export default function ProductClient({ product }: ProductClientProps) {
-  const [selectedVariant, setSelectedVariant] = useState<ShopifyProductVariant>(
-    product.variants.edges[0]?.node
-  );
+  const [selectedVariant, setSelectedVariant] = useState<ShopifyProductVariant | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
     const defaultOptions: Record<string, string> = {};
-    if (selectedVariant) {
-      selectedVariant.selectedOptions.forEach(option => {
+    const firstVariant = product.variants.edges[0]?.node;
+    if (firstVariant) {
+      firstVariant.selectedOptions.forEach(option => {
         defaultOptions[option.name] = option.value;
       });
     }
@@ -29,25 +28,57 @@ export default function ProductClient({ product }: ProductClientProps) {
   
   const { addToCart, openCart } = useCartStore();
 
+  // Initialize selected variant on component mount
+  useState(() => {
+    if (product.variants.edges.length > 0) {
+      setSelectedVariant(product.variants.edges[0].node);
+    }
+  });
+
   const handleOptionChange = (optionName: string, optionValue: string) => {
     const newSelectedOptions = { ...selectedOptions, [optionName]: optionValue };
     setSelectedOptions(newSelectedOptions);
 
     // Find the variant that matches the selected options
     const matchingVariant = product.variants.edges.find(({ node: variant }) =>
-      variant.selectedOptions.every(option =>
+      variant.selectedOptions.length === Object.keys(newSelectedOptions).length &&
+      variant.selectedOptions.every(option => 
         newSelectedOptions[option.name] === option.value
+      ) &&
+      Object.keys(newSelectedOptions).every(optionName =>
+        variant.selectedOptions.some(option => 
+          option.name === optionName && option.value === newSelectedOptions[optionName]
+        )
       )
     );
 
     if (matchingVariant) {
       setSelectedVariant(matchingVariant.node);
+      console.log('Selected variant changed:', {
+        variantId: matchingVariant.node.id,
+        title: matchingVariant.node.title,
+        options: matchingVariant.node.selectedOptions,
+        availableForSale: matchingVariant.node.availableForSale
+      });
+    } else {
+      console.warn('No matching variant found for options:', newSelectedOptions);
     }
   };
 
   const handleAddToCart = async () => {
     if (!selectedVariant || isAddingToCart) {
       console.log('Cannot add to cart:', { selectedVariant: !!selectedVariant, isAddingToCart });
+      return;
+    }
+
+    if (!selectedVariant.availableForSale) {
+      toast.error('This variant is out of stock', {
+        duration: 3000,
+        style: {
+          background: '#EF4444',
+          color: '#fff',
+        },
+      });
       return;
     }
 
@@ -88,6 +119,32 @@ export default function ProductClient({ product }: ProductClientProps) {
     }
   };
 
+  const handleBuyNow = async () => {
+    if (!selectedVariant || isAddingToCart) {
+      return;
+    }
+
+    if (!selectedVariant.availableForSale) {
+      toast.error('This variant is out of stock');
+      return;
+    }
+
+    setIsAddingToCart(true);
+    try {
+      // Add to cart first
+      await addToCart(selectedVariant.id, quantity);
+      
+      // Redirect to checkout immediately
+      window.location.href = '/checkout';
+      
+    } catch (error) {
+      console.error('Buy now error:', error);
+      toast.error('Failed to process. Please try again.');
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
   const images = product.images.edges.map(edge => edge.node);
 
   // Debug logging
@@ -122,7 +179,7 @@ export default function ProductClient({ product }: ProductClientProps) {
           </div>
 
           {/* Variant Options */}
-          {product.options && product.options.length > 0 && product.options.map((option) => (
+          {product.options && product.options.length > 0 && product.options.filter(option => option.values.length > 1).map((option) => (
             <div key={option.id}>
               <h3 className="font-medium text-gray-900 mb-2">{option.name}</h3>
               <div className="flex flex-wrap gap-2">
@@ -130,10 +187,10 @@ export default function ProductClient({ product }: ProductClientProps) {
                   <button
                     key={value}
                     onClick={() => handleOptionChange(option.name, value)}
-                    className={`px-4 py-2 border rounded-md transition-colors ${
+                    className={`px-4 py-2 border rounded-md transition-colors text-sm font-medium ${
                       selectedOptions[option.name] === value
                         ? 'border-black bg-black text-white'
-                        : 'border-gray-300 hover:border-gray-400'
+                        : 'border-gray-300 hover:border-gray-400 bg-white text-gray-900'
                     }`}
                   >
                     {value}
@@ -169,27 +226,41 @@ export default function ProductClient({ product }: ProductClientProps) {
           </div>
 
           {/* Add to Cart */}
-          <Button
-            className="w-full"
-            onClick={handleAddToCart}
-            disabled={!selectedVariant?.availableForSale || isAddingToCart}
-            size="lg"
-          >
-            {isAddingToCart 
-              ? 'Adding to Cart...' 
-              : selectedVariant?.availableForSale 
-                ? 'Add to Cart' 
-                : 'Out of Stock'
-            }
-          </Button>
+          <div className="space-y-3">
+            <Button
+              className="w-full"
+              onClick={handleAddToCart}
+              disabled={!selectedVariant || !selectedVariant.availableForSale || isAddingToCart}
+              size="lg"
+            >
+              {isAddingToCart 
+                ? 'Adding to Cart...' 
+                : selectedVariant && selectedVariant.availableForSale 
+                  ? 'Add to Cart' 
+                  : 'Out of Stock'
+              }
+            </Button>
+            
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleBuyNow}
+              disabled={!selectedVariant || !selectedVariant.availableForSale || isAddingToCart}
+              size="lg"
+            >
+              Buy Now
+            </Button>
+          </div>
 
           {/* Debug Info (remove in production) */}
-          {process.env.NODE_ENV === 'development' && (
+          {process.env.NODE_ENV === 'development' && selectedVariant && (
             <div className="bg-gray-100 p-4 rounded text-xs">
               <p><strong>Debug Info:</strong></p>
-              <p>Variant ID: {selectedVariant?.id}</p>
-              <p>Available: {selectedVariant?.availableForSale ? 'Yes' : 'No'}</p>
-              <p>Price: {selectedVariant?.price.amount} {selectedVariant?.price.currencyCode}</p>
+              <p>Variant ID: {selectedVariant.id}</p>
+              <p>Variant Title: {selectedVariant.title}</p>
+              <p>Available: {selectedVariant.availableForSale ? 'Yes' : 'No'}</p>
+              <p>Price: {selectedVariant.price.amount} {selectedVariant.price.currencyCode}</p>
+              <p>Selected Options: {JSON.stringify(selectedOptions)}</p>
             </div>
           )}
 

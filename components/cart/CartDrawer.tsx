@@ -31,6 +31,8 @@ export default function CartDrawer() {
 
 
   const handleQuantityChange = async (variantId: string, newQuantity: number) => {
+    if (isLoading) return;
+    
     if (newQuantity <= 0) {
       await removeFromCart(variantId);
     } else {
@@ -107,7 +109,7 @@ export default function CartDrawer() {
                         size="sm"
                         className="h-7 w-7 p-0"
                         onClick={() => handleQuantityChange(item.variantId, item.quantity - 1)}
-                        disabled={isLoading}
+                        disabled={isLoading || item.quantity <= 1}
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
@@ -117,7 +119,7 @@ export default function CartDrawer() {
                         size="sm"
                         className="h-7 w-7 p-0"
                         onClick={() => handleQuantityChange(item.variantId, item.quantity + 1)}
-                        disabled={isLoading}
+                        disabled={isLoading || item.quantity >= item.maxQuantity}
                       >
                         <Plus className="h-3 w-3" />
                       </Button>

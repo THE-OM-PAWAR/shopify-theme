@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { CartItem } from './types';
-import { shopifyFetch } from './shopify';
+import { shopifyFetchServer } from './shopify-server';
 import { CREATE_CART_MUTATION, ADD_TO_CART_MUTATION, UPDATE_CART_MUTATION, GET_CART_QUERY } from './queries';
 
 interface CartStore {
@@ -23,6 +23,41 @@ interface CartStore {
   closeCart: () => void;
   refreshCart: () => Promise<void>;
 }
+
+// Client-side Shopify fetch function
+const shopifyFetchClient = async ({ query, variables = {} }: { query: string; variables?: any }) => {
+  const endpoint = `https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`;
+  
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Storefront-Access-Token': process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN!,
+      },
+      body: JSON.stringify({
+        query,
+        variables,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.errors) {
+      console.error('Shopify GraphQL errors:', result.errors);
+      throw new Error('GraphQL errors occurred');
+    }
+
+    return { data: result.data };
+  } catch (error) {
+    console.error('Shopify Client API Error:', error);
+    throw error;
+  }
+};
 
 const parseCartData = (cart: any): { items: CartItem[], totalQuantity: number, totalPrice: number, currencyCode: string, checkoutUrl: string } => {
   if (!cart || !cart.lines || !cart.lines.edges) {
@@ -82,7 +117,7 @@ export const useCartStore = create<CartStore>()(
           if (!state.cartId) {
             // Create new cart
             console.log('Creating new cart with variant:', variantId, 'quantity:', quantity);
-            const response = await shopifyFetch({
+            const response = await shopifyFetchClient({
               query: CREATE_CART_MUTATION,
               variables: {
                 input: {
@@ -113,7 +148,7 @@ export const useCartStore = create<CartStore>()(
           } else {
             // Add to existing cart
             console.log('Adding to existing cart:', state.cartId);
-            const response = await shopifyFetch({
+            const response = await shopifyFetchClient({
               query: ADD_TO_CART_MUTATION,
               variables: {
                 cartId: state.cartId,
@@ -157,7 +192,7 @@ export const useCartStore = create<CartStore>()(
           const lineItem = state.items.find(item => item.variantId === variantId);
           if (!lineItem) return;
 
-          const response = await shopifyFetch({
+          const response = await shopifyFetchClient({
             query: UPDATE_CART_MUTATION,
             variables: {
               cartId: state.cartId,
@@ -198,7 +233,7 @@ export const useCartStore = create<CartStore>()(
 
         set({ isLoading: true });
         try {
-          const response = await shopifyFetch({
+          const response = await shopifyFetchClient({
             query: GET_CART_QUERY,
             variables: { cartId: state.cartId }
           });

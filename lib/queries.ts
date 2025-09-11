@@ -170,11 +170,14 @@ export const CREATE_CART_MUTATION = `
                   product {
                     id
                     title
+                    handle
                     images(first: 1) {
                       edges {
                         node {
                           url
                           altText
+                          width
+                          height
                         }
                       }
                     }
@@ -221,11 +224,14 @@ export const ADD_TO_CART_MUTATION = `
                   product {
                     id
                     title
+                    handle
                     images(first: 1) {
                       edges {
                         node {
                           url
                           altText
+                          width
+                          height
                         }
                       }
                     }
@@ -272,11 +278,14 @@ export const UPDATE_CART_MUTATION = `
                   product {
                     id
                     title
+                    handle
                     images(first: 1) {
                       edges {
                         node {
                           url
                           altText
+                          width
+                          height
                         }
                       }
                     }
@@ -322,11 +331,14 @@ export const GET_CART_QUERY = `
                 product {
                   id
                   title
+                  handle
                   images(first: 1) {
                     edges {
                       node {
                         url
                         altText
+                        width
+                        height
                       }
                     }
                   }
