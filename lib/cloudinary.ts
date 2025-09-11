@@ -3,7 +3,10 @@ export const uploadToCloudinary = async (file: Blob, filename: string): Promise<
   const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
-  console.log('Cloudinary config:', { cloudName, uploadPreset });
+  console.log('Cloudinary config check:', { 
+    cloudName: cloudName ? 'Set' : 'Missing', 
+    uploadPreset: uploadPreset ? 'Set' : 'Missing' 
+  });
 
   if (!cloudName || !uploadPreset) {
     const missingVars = [];
@@ -29,19 +32,22 @@ export const uploadToCloudinary = async (file: Blob, filename: string): Promise<
       }
     );
 
+    const responseText = await response.text();
+    console.log('Cloudinary response status:', response.status);
+    console.log('Cloudinary response:', responseText);
+
     if (!response.ok) {
-      const errorText = await response.text();
       console.error('Cloudinary upload failed:', {
         status: response.status,
         statusText: response.statusText,
-        error: errorText,
+        error: responseText,
         cloudName,
         uploadPreset
       });
-      throw new Error(`Upload failed: ${response.status} ${errorText}`);
+      throw new Error(`Upload failed: ${response.status} ${responseText}`);
     }
 
-    const data = await response.json();
+    const data = JSON.parse(responseText);
     console.log('Cloudinary upload successful:', data.secure_url);
     
     return data.secure_url;

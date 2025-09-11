@@ -1,13 +1,13 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { useState } from 'react';
 import { ShopifyProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useCustomizationStore } from '@/lib/customization-store';
 import ImageCustomizationModal from '@/components/customization/ImageCustomizationModal';
 import { Palette, Eye } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface ProductCardProps {
   product: ShopifyProduct;
@@ -20,13 +20,22 @@ export default function ProductCard({ product }: ProductCardProps) {
   const image = product.images.edges[0]?.node;
   const price = product.priceRange.minVariantPrice;
   
+  console.log('ProductCard - Product:', product.title);
+  console.log('ProductCard - Product metafields:', product.metafields);
+  
   // Check if product has frame image metafield
   const frameImageMetafield = product.metafields?.find(
     (metafield) => metafield && metafield.namespace === 'custom' && metafield.key === 'frame_image'
   );
+  
+  console.log('ProductCard - Frame image metafield:', frameImageMetafield);
+  
   const frameImageUrl = frameImageMetafield?.value;
+  console.log('ProductCard - Frame image URL:', frameImageUrl);
+  
   // Only allow customization if we have a valid HTTP(S) URL, not a Shopify GID
   const canCustomize = !!frameImageUrl && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'));
+  console.log('ProductCard - Can customize:', canCustomize);
   
   // Check if user has customized this product
   const customization = getCustomization(product.id);
@@ -36,13 +45,17 @@ export default function ProductCard({ product }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
     
+    console.log('Customize button clicked for product:', product.title);
+    console.log('Frame image URL:', frameImageUrl);
+    console.log('Can customize:', canCustomize);
+    
     if (!canCustomize) {
       console.error('Cannot customize product:', product.id, 'Frame image URL:', frameImageUrl);
       toast.error('This product cannot be customized. Frame image not properly configured.');
       return;
     }
     
-    console.log('Customize clicked for product:', product.id, 'Frame image URL:', frameImageUrl);
+    console.log('Opening customization modal...');
     setIsCustomizationModalOpen(true);
   };
 
@@ -91,16 +104,15 @@ export default function ProductCard({ product }: ProductCardProps) {
                   View
                 </Button>
                 
-                {canCustomize && (
-                  <Button
-                    size="sm"
-                    onClick={handleCustomizeClick}
-                    className="bg-blue-600 text-white hover:bg-blue-700"
-                  >
-                    <Palette className="h-4 w-4 mr-1" />
-                    Customize
-                  </Button>
-                )}
+                {/* Always show customize button for testing */}
+                <Button
+                  size="sm"
+                  onClick={handleCustomizeClick}
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  <Palette className="h-4 w-4 mr-1" />
+                  Customize
+                </Button>
               </div>
             </div>
           </div>
@@ -128,28 +140,33 @@ export default function ProductCard({ product }: ProductCardProps) {
                 View
               </Button>
               
-              {canCustomize && (
-                <Button
-                  size="sm"
-                  onClick={handleCustomizeClick}
-                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  <Palette className="h-4 w-4 mr-1" />
-                  Customize
-                </Button>
-              )}
+              {/* Always show customize button for testing */}
+              <Button
+                size="sm"
+                onClick={handleCustomizeClick}
+                className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+              >
+                <Palette className="h-4 w-4 mr-1" />
+                Customize
+              </Button>
+            </div>
+            
+            {/* Debug Info */}
+            <div className="mt-2 text-xs text-gray-500">
+              <p>Frame URL: {frameImageUrl || 'None'}</p>
+              <p>Can Customize: {canCustomize ? 'Yes' : 'No'}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Customization Modal */}
-      {isCustomizationModalOpen && frameImageUrl && (
+      {isCustomizationModalOpen && (
         <ImageCustomizationModal
           isOpen={isCustomizationModalOpen}
           onClose={() => setIsCustomizationModalOpen(false)}
           product={product}
-          frameImageUrl={frameImageUrl}
+          frameImageUrl={frameImageUrl || 'https://via.placeholder.com/400x600/transparent'}
         />
       )}
     </>

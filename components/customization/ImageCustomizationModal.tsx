@@ -52,27 +52,45 @@ export default function ImageCustomizationModal({
   const CANVAS_WIDTH = 400;
   const CANVAS_HEIGHT = 600;
 
+  console.log('ImageCustomizationModal - Opening with frame URL:', frameImageUrl);
+
   // Load frame image
   useEffect(() => {
-    if (frameImageUrl) {
-      // Check if frameImageUrl is a Shopify GID and skip loading
-      if (frameImageUrl.startsWith('gid://shopify/')) {
-        console.error('Frame image URL is a Shopify GID, not a direct URL:', frameImageUrl);
-        toast.error('Frame image configuration error. Please contact support.');
-        return;
-      }
-      
+    if (frameImageUrl && frameImageUrl !== 'https://via.placeholder.com/400x600/transparent') {
+      console.log('Loading frame image:', frameImageUrl);
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        console.log('Frame image loaded:', frameImageUrl);
+        console.log('Frame image loaded successfully');
         setFrameImage(img);
       };
       img.onerror = (error) => {
         console.error('Failed to load frame image:', frameImageUrl, error);
-        toast.error('Failed to load frame image. Please check the image URL.');
+        toast.error('Failed to load frame image. Using placeholder.');
+        // Create a placeholder frame
+        const placeholderImg = new Image();
+        placeholderImg.onload = () => setFrameImage(placeholderImg);
+        placeholderImg.src = 'data:image/svg+xml;base64,' + btoa(`
+          <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
+            <rect width="400" height="600" fill="none" stroke="#ccc" stroke-width="2"/>
+            <rect x="50" y="100" width="300" height="400" fill="none" stroke="#999" stroke-width="1" stroke-dasharray="5,5"/>
+            <text x="200" y="320" text-anchor="middle" fill="#999" font-family="Arial" font-size="16">Frame Area</text>
+          </svg>
+        `);
       };
       img.src = frameImageUrl;
+    } else {
+      // Create a default placeholder frame
+      console.log('Creating placeholder frame');
+      const placeholderImg = new Image();
+      placeholderImg.onload = () => setFrameImage(placeholderImg);
+      placeholderImg.src = 'data:image/svg+xml;base64,' + btoa(`
+        <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
+          <rect width="400" height="600" fill="rgba(255,255,255,0.8)" stroke="#ccc" stroke-width="2"/>
+          <rect x="50" y="100" width="300" height="400" fill="transparent" stroke="#999" stroke-width="2"/>
+          <text x="200" y="320" text-anchor="middle" fill="#666" font-family="Arial" font-size="16">Your Image Here</text>
+        </svg>
+      `);
     }
   }, [frameImageUrl]);
 
@@ -88,10 +106,11 @@ export default function ImageCustomizationModal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    // Clear canvas with white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-    // Draw uploaded image if available
+    // Draw uploaded image if available (behind frame)
     if (uploadedImage) {
       ctx.save();
       
@@ -106,11 +125,11 @@ export default function ImageCustomizationModal({
       
       let drawWidth, drawHeight;
       if (imgAspect > canvasAspect) {
-        drawWidth = CANVAS_WIDTH;
-        drawHeight = CANVAS_WIDTH / imgAspect;
+        drawWidth = CANVAS_WIDTH * 0.8; // Make it smaller so it fits nicely
+        drawHeight = drawWidth / imgAspect;
       } else {
-        drawHeight = CANVAS_HEIGHT;
-        drawWidth = CANVAS_HEIGHT * imgAspect;
+        drawHeight = CANVAS_HEIGHT * 0.8;
+        drawWidth = drawHeight * imgAspect;
       }
       
       // Draw image centered
@@ -135,7 +154,7 @@ export default function ImageCustomizationModal({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    console.log('File selected:', file.name);
+    console.log('File selected:', file.name, file.type, file.size);
     setIsLoading(true);
 
     const reader = new FileReader();
@@ -161,6 +180,11 @@ export default function ImageCustomizationModal({
       };
       img.src = e.target?.result as string;
     };
+    reader.onerror = () => {
+      console.error('Failed to read file');
+      setIsLoading(false);
+      toast.error('Failed to read file');
+    };
     reader.readAsDataURL(file);
   };
 
@@ -176,6 +200,7 @@ export default function ImageCustomizationModal({
 
     setIsDragging(true);
     setDragStart({ x: x - imageState.x, y: y - imageState.y });
+    console.log('Started dragging at:', x, y);
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -196,7 +221,10 @@ export default function ImageCustomizationModal({
   };
 
   const handleMouseUp = () => {
-    setIsDragging(false);
+    if (isDragging) {
+      console.log('Stopped dragging');
+      setIsDragging(false);
+    }
   };
 
   const handleScaleChange = (value: number[]) => {
@@ -214,6 +242,7 @@ export default function ImageCustomizationModal({
       scale: 1,
       rotation: 0
     });
+    toast.success('Position reset!');
   };
 
   const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
@@ -237,6 +266,8 @@ export default function ImageCustomizationModal({
     setIsUploading(true);
     
     try {
+      console.log('Starting save process...');
+      
       // Create canvas for original image
       const originalCanvas = document.createElement('canvas');
       originalCanvas.width = uploadedImage.width;
@@ -250,8 +281,33 @@ export default function ImageCustomizationModal({
       const renderedBlob = await canvasToBlob(canvasRef.current);
       const originalBlob = await canvasToBlob(originalCanvas);
 
-      console.log('Uploading images to Cloudinary...');
+      console.log('Blobs created, uploading to Cloudinary...');
       
+      // Check if Cloudinary is configured
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+      
+      if (!cloudName || !uploadPreset) {
+        console.warn('Cloudinary not configured, saving locally...');
+        
+        // Create local URLs for testing
+        const renderedUrl = URL.createObjectURL(renderedBlob);
+        const originalUrl = URL.createObjectURL(originalBlob);
+        
+        // Save customization data
+        saveCustomization(product.id, {
+          originalImageUrl: originalUrl,
+          renderedImageUrl: renderedUrl,
+          frameImageUrl,
+          imageState,
+          createdAt: new Date().toISOString()
+        });
+
+        toast.success('Customization saved locally! (Cloudinary not configured)');
+        onClose();
+        return;
+      }
+
       // Upload both images to Cloudinary
       const [renderedUrl, originalUrl] = await Promise.all([
         uploadToCloudinary(renderedBlob, `${product.handle}-rendered-${Date.now()}`),
@@ -273,7 +329,7 @@ export default function ImageCustomizationModal({
       onClose();
     } catch (error) {
       console.error('Save error:', error);
-      toast.error('Failed to save customization');
+      toast.error('Failed to save customization: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsUploading(false);
     }
@@ -381,6 +437,7 @@ export default function ImageCustomizationModal({
                 <div className="text-center py-8 text-gray-500">
                   <Upload className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                   <p>Upload an image to start customizing</p>
+                  <p className="text-sm mt-2">Supported formats: JPG, PNG, GIF</p>
                 </div>
               )}
             </div>
@@ -395,6 +452,15 @@ export default function ImageCustomizationModal({
                 <li>4. Your image will show through the frame</li>
                 <li>5. Click save when you're happy with the result</li>
               </ul>
+            </div>
+
+            {/* Debug Info */}
+            <div className="bg-gray-100 p-3 rounded text-xs">
+              <p><strong>Debug Info:</strong></p>
+              <p>Frame URL: {frameImageUrl}</p>
+              <p>Frame Loaded: {frameImage ? 'Yes' : 'No'}</p>
+              <p>User Image: {uploadedImage ? 'Loaded' : 'None'}</p>
+              <p>Canvas Size: {CANVAS_WIDTH}x{CANVAS_HEIGHT}</p>
             </div>
 
             {/* Action Buttons */}
