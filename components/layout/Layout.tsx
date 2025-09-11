@@ -5,7 +5,7 @@ import CartDrawer from '@/components/cart/CartDrawer';
 import Header from '@/components/layout/Header';
 import { Toaster } from 'react-hot-toast';
 import { useCartStore } from '@/lib/store';
-import Footer from '@/components/layout/Footer';
+import Footer from '@/components/layout/footer';
 
 interface LayoutProps {
   children: React.ReactNode; 
