@@ -100,6 +100,11 @@ export const PRODUCT_QUERY = `
       handle
       title
       description
+      metafields(identifiers: [{namespace: "custom", key: "frame_image"}]) {
+        namespace
+        key
+        value
+      }
       priceRange {
         minVariantPrice {
           amount

@@ -56,7 +56,7 @@ export default function ImageCustomizationModal({
 
   // Load frame image
   useEffect(() => {
-    if (frameImageUrl && frameImageUrl !== 'https://via.placeholder.com/400x600/transparent' && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'))) {
+    if (frameImageUrl && frameImageUrl !== 'https://via.placeholder.com/400x600/transparent' && frameImageUrl.trim() !== '' && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'))) {
       console.log('Loading frame image:', frameImageUrl);
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -284,7 +284,7 @@ export default function ImageCustomizationModal({
       console.log('Blobs created, uploading to Cloudinary...');
       
       // Check if Cloudinary is configured
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME;
       const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
       
       if (!cloudName || !uploadPreset) {

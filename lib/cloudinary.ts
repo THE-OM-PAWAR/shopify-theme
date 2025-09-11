@@ -1,6 +1,6 @@
 // Cloudinary upload utility
 export const uploadToCloudinary = async (file: Blob, filename: string): Promise<string> => {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME;
   const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
 
   console.log('Cloudinary config check:', { 
@@ -10,7 +10,7 @@ export const uploadToCloudinary = async (file: Blob, filename: string): Promise<
 
   if (!cloudName || !uploadPreset) {
     const missingVars = [];
-    if (!cloudName) missingVars.push('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME');
+    if (!cloudName) missingVars.push('NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME or CLOUDINARY_CLOUD_NAME');
     if (!uploadPreset) missingVars.push('NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET');
     throw new Error(`Cloudinary configuration is missing: ${missingVars.join(', ')}. Please check your environment variables.`);
   }
