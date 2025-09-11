@@ -76,7 +76,8 @@
     "typescript": "5.2.2",
     "vaul": "^0.9.9",
     "zod": "^3.23.8",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.8",
+    "cloudinary": "^2.5.1"
   },
   "devDependencies": {
     "@types/fabric": "^5.3.10"

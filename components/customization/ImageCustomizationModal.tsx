@@ -283,31 +283,6 @@ export default function ImageCustomizationModal({
 
       console.log('Blobs created, uploading to Cloudinary...');
       
-      // Check if Cloudinary is configured
-      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || process.env.CLOUDINARY_CLOUD_NAME;
-      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-      
-      if (!cloudName || !uploadPreset) {
-        console.warn('Cloudinary not configured, saving locally...');
-        
-        // Create local URLs for testing
-        const renderedUrl = URL.createObjectURL(renderedBlob);
-        const originalUrl = URL.createObjectURL(originalBlob);
-        
-        // Save customization data
-        saveCustomization(product.id, {
-          originalImageUrl: originalUrl,
-          renderedImageUrl: renderedUrl,
-          frameImageUrl,
-          imageState,
-          createdAt: new Date().toISOString()
-        });
-
-        toast.success('Customization saved locally! (Cloudinary not configured)');
-        onClose();
-        return;
-      }
-
       // Upload both images to Cloudinary
       const [renderedUrl, originalUrl] = await Promise.all([
         uploadToCloudinary(renderedBlob, `${product.handle}-rendered-${Date.now()}`),
