@@ -82,7 +82,8 @@ export default function CheckoutPage() {
     
     for (const field of required) {
       if (!formData[field as keyof CheckoutFormData]) {
-        toast.error(`Please fill in ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`);
+        const fieldName = field.replace(/([A-Z])/g, ' $1').toLowerCase().replace(/^./, str => str.toUpperCase());
+        toast.error(`Please fill in ${fieldName}`);
         return false;
       }
     }
@@ -116,7 +117,7 @@ export default function CheckoutPage() {
 
     setIsLoading(true);
     try {
-      // Create order in Shopify
+      // Prepare order data for Shopify
       const orderData = {
         email: formData.email,
         shipping_address: {
@@ -140,16 +141,14 @@ export default function CheckoutPage() {
           zip: formData.pinCode,
           country: formData.country,
           phone: formData.phone,
-        } : undefined,
+        } : null,
         line_items: items.map(item => ({
-          variant_id: item.variantId.replace('gid://shopify/ProductVariant/', ''),
+          variant_id: item.variantId.includes('gid://shopify/ProductVariant/') 
+            ? item.variantId.replace('gid://shopify/ProductVariant/', '')
+            : item.variantId,
           quantity: item.quantity,
           price: item.price,
         })),
-        financial_status: formData.paymentMethod === 'cod' ? 'pending' : 'paid',
-        fulfillment_status: 'unfulfilled',
-        tags: `payment_method:${formData.paymentMethod}`,
-        note: `Payment Method: ${formData.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment'}`,
         total_price: total.toFixed(2),
         subtotal_price: subtotal.toFixed(2),
         total_tax: tax.toFixed(2),
@@ -157,6 +156,7 @@ export default function CheckoutPage() {
           title: 'Standard Shipping',
           price: shipping.toFixed(2),
         }] : [],
+        payment_method: formData.paymentMethod,
       };
 
       console.log('Creating order with data:', orderData);
@@ -176,13 +176,21 @@ export default function CheckoutPage() {
         clearCart();
         
         // Redirect to success page with order details
-        window.location.href = `/checkout/success?order_id=${result.order.id}&order_number=${result.order.order_number}`;
+        const params = new URLSearchParams({
+          order_id: result.order.id.toString(),
+          order_number: result.order.order_number,
+          total_price: result.order.total_price,
+          currency: result.order.currency
+        });
+        window.location.href = `/checkout/success?${params.toString()}`;
       } else {
-        throw new Error(result.error || 'Failed to create order');
+        console.error('Order creation failed:', result);
+        throw new Error(result.error || result.details || 'Failed to create order');
       }
     } catch (error) {
       console.error('Order creation error:', error);
-      toast.error('Failed to place order. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to place order. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

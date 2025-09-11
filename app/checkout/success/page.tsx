@@ -24,20 +24,35 @@ export default function CheckoutSuccessPage() {
   useEffect(() => {
     const orderId = searchParams.get('order_id');
     const orderNumber = searchParams.get('order_number');
+    const totalPrice = searchParams.get('total_price');
+    const currency = searchParams.get('currency');
     
     if (orderId && orderNumber) {
       setOrderDetails({
         id: orderId,
         order_number: orderNumber,
-        total_price: searchParams.get('total_price') || '0',
-        currency: searchParams.get('currency') || 'INR',
+        total_price: totalPrice || '0',
+        currency: currency || 'INR',
         created_at: new Date().toISOString(),
       });
       
       // Clear cart on successful order
       clearCart();
+    } else {
+      console.warn('Missing order details in URL params');
     }
   }, [searchParams, clearCart]);
+
+  if (!orderDetails) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading order details...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

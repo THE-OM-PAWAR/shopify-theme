@@ -114,6 +114,8 @@ export const useCartStore = create<CartStore>()(
         try {
           const state = get();
           
+          console.log('Adding to cart:', { variantId, quantity, currentCartId: state.cartId });
+          
           if (!state.cartId) {
             // Create new cart
             console.log('Creating new cart with variant:', variantId, 'quantity:', quantity);
@@ -144,6 +146,9 @@ export const useCartStore = create<CartStore>()(
             } else if (response.data?.cartCreate?.userErrors?.length > 0) {
               console.error('Cart creation errors:', response.data.cartCreate.userErrors);
               throw new Error(response.data.cartCreate.userErrors[0].message);
+            } else {
+              console.error('Unexpected cart creation response:', response);
+              throw new Error('Failed to create cart');
             }
           } else {
             // Add to existing cart
@@ -173,6 +178,9 @@ export const useCartStore = create<CartStore>()(
             } else if (response.data?.cartLinesAdd?.userErrors?.length > 0) {
               console.error('Add to cart errors:', response.data.cartLinesAdd.userErrors);
               throw new Error(response.data.cartLinesAdd.userErrors[0].message);
+            } else {
+              console.error('Unexpected add to cart response:', response);
+              throw new Error('Failed to add item to cart');
             }
           }
         } catch (error) {
