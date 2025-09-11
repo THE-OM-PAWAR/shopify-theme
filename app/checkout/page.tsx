@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useCartStore } from '@/lib/store';
+import { useCustomizationStore } from '@/lib/customization-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +32,7 @@ interface CheckoutFormData {
 
 export default function CheckoutPage() {
   const { items, totalPrice, currencyCode, clearCart } = useCartStore();
+  const { getCustomization } = useCustomizationStore();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<CheckoutFormData>({
     email: '',
@@ -440,8 +442,12 @@ export default function CheckoutPage() {
             {/* Cart Items */}
             <div className="space-y-4 mb-6">
               {items.map((item) => (
+                // Check if this product has customization
+                const customization = getCustomization(item.productId);
+                      {displayImage && (
+                
                 <div key={item.id} className="flex items-start space-x-4">
-                  <div className="relative">
+                            src={displayImage}
                     {item.image && (
                       <div className="w-16 h-16 relative rounded-lg overflow-hidden bg-gray-100">
                         <Image
@@ -452,6 +458,11 @@ export default function CheckoutPage() {
                           sizes="64px"
                         />
                       </div>
+                      {customization && (
+                        <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-xs px-1 py-0.5 rounded">
+                          Custom
+                        </div>
+                      )}
                     )}
                     <div className="absolute -top-2 -right-2 bg-gray-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                       {item.quantity}
@@ -462,6 +473,9 @@ export default function CheckoutPage() {
                     <h3 className="font-medium text-sm line-clamp-2">{item.title}</h3>
                     {item.variantTitle && (
                       <p className="text-xs text-gray-500">{item.variantTitle}</p>
+                      {customization && (
+                        <p className="text-xs text-blue-600 font-medium">Customized Product</p>
+                      )}
                     )}
                   </div>
 

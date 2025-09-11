@@ -19,6 +19,11 @@ export const FEATURED_COLLECTIONS_QUERY = `
                 id
                 handle
                 title
+                metafields(identifiers: [{namespace: "custom", key: "frame_image"}]) {
+                  namespace
+                  key
+                  value
+                }
                 priceRange {
                   minVariantPrice {
                     amount

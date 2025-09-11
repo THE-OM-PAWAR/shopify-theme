@@ -1,6 +1,7 @@
 'use client';
 
 import { useCartStore } from '@/lib/store';
+import { useCustomizationStore } from '@/lib/customization-store';
 import { X, Plus, Minus, ShoppingBag } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ export default function CartDrawer() {
     refreshCart,
   } = useCartStore();
 
+  const { getCustomization } = useCustomizationStore();
   useEffect(() => {
     if (isOpen) {
       refreshCart();
@@ -76,6 +78,10 @@ export default function CartDrawer() {
           ) : (
             <div className="space-y-4">
               {items.map((item) => (
+                // Check if this product has customization
+                const customization = getCustomization(item.productId);
+                const displayImage = customization?.renderedImageUrl || item.image;
+                
                 <div key={item.id} className="flex items-start space-x-4 p-4 border rounded-lg">
                   {item.image && (
                     <div className="w-16 h-16 relative rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
@@ -83,15 +89,20 @@ export default function CartDrawer() {
                         src={item.image}
                         alt={item.title}
                         fill
-                        className="object-cover"
+                    {displayImage && (
                         sizes="64px"
                       />
-                    </div>
+                          src={displayImage}
                   )}
                   
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-sm line-clamp-2">{item.title}</h3>
                     {item.variantTitle && (
+                        {customization && (
+                          <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs px-1 py-0.5 rounded-bl">
+                            Custom
+                          </div>
+                        )}
                       <p className="text-xs text-gray-500">{item.variantTitle}</p>
                     )}
                     <p className="text-gray-900 font-semibold text-sm mt-1">
@@ -117,6 +128,9 @@ export default function CartDrawer() {
                       <Button
                         variant="outline"
                         size="sm"
+                      {customization && (
+                        <p className="text-xs text-blue-600 font-medium">Customized</p>
+                      )}
                         className="h-7 w-7 p-0"
                         onClick={() => handleQuantityChange(item.variantId, item.quantity + 1)}
                         disabled={isLoading || item.quantity >= item.maxQuantity}
