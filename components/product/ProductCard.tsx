@@ -22,7 +22,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   
   // Check if product has frame image metafield
   const frameImageMetafield = product.metafields?.find(
-    (metafield) => metafield.namespace === 'custom' && metafield.key === 'frame_image'
+    (metafield) => metafield && metafield.namespace === 'custom' && metafield.key === 'frame_image'
   );
   const frameImageUrl = frameImageMetafield?.value;
   const canCustomize = !!frameImageUrl;
