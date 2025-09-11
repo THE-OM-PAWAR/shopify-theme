@@ -1,23 +1,5 @@
 // Cloudinary upload utility using signed uploads
 export const uploadToCloudinary = async (file: Blob, filename: string): Promise<string> => {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
-
-  console.log('Cloudinary config check:', { 
-    cloudName: cloudName ? 'Set' : 'Missing', 
-    apiKey: apiKey ? 'Set' : 'Missing',
-    apiSecret: apiSecret ? 'Set' : 'Missing'
-  });
-
-  if (!cloudName || !apiKey || !apiSecret) {
-    const missingVars = [];
-    if (!cloudName) missingVars.push('CLOUDINARY_CLOUD_NAME');
-    if (!apiKey) missingVars.push('CLOUDINARY_API_KEY');
-    if (!apiSecret) missingVars.push('CLOUDINARY_API_SECRET');
-    throw new Error(`Cloudinary configuration is missing: ${missingVars.join(', ')}. Please check your environment variables.`);
-  }
-
   try {
     console.log('Uploading to Cloudinary via API route:', filename);
     
