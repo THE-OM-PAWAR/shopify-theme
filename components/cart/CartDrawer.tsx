@@ -5,6 +5,7 @@ import { X, Plus, Minus, ShoppingBag } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useEffect } from 'react';
+import Link from 'next/link';
 
 export default function CartDrawer() {
   const {
@@ -28,11 +29,6 @@ export default function CartDrawer() {
 
   if (!isOpen) return null;
 
-  const handleCheckout = () => {
-    if (checkoutUrl) {
-      window.open(checkoutUrl, '_blank');
-    }
-  };
 
   const handleQuantityChange = async (variantId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
@@ -156,14 +152,16 @@ export default function CartDrawer() {
             </div>
             <Button 
               className="w-full" 
-              onClick={handleCheckout}
-              disabled={!checkoutUrl || isLoading}
+              asChild
+              disabled={isLoading}
               size="lg"
             >
-              {isLoading ? 'Processing...' : 'Secure Checkout'}
+              <Link href="/checkout" onClick={closeCart}>
+                {isLoading ? 'Processing...' : 'Secure Checkout'}
+              </Link>
             </Button>
             <p className="text-xs text-gray-500 text-center">
-              Secure checkout powered by Shopify
+              Secure checkout powered by Stripe
             </p>
           </div>
         )}

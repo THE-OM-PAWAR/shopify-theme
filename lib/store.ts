@@ -25,6 +25,16 @@ interface CartStore {
 }
 
 const parseCartData = (cart: any): { items: CartItem[], totalQuantity: number, totalPrice: number, currencyCode: string, checkoutUrl: string } => {
+  if (!cart || !cart.lines || !cart.lines.edges) {
+    return {
+      items: [],
+      totalQuantity: 0,
+      totalPrice: 0,
+      currencyCode: 'USD',
+      checkoutUrl: ''
+    };
+  }
+
   const items: CartItem[] = cart.lines.edges.map((edge: any) => {
     const line = edge.node;
     const variant = line.merchandise;
@@ -45,9 +55,9 @@ const parseCartData = (cart: any): { items: CartItem[], totalQuantity: number, t
   });
 
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = parseFloat(cart.cost.totalAmount.amount);
-  const currencyCode = cart.cost.totalAmount.currencyCode;
-  const checkoutUrl = cart.checkoutUrl;
+  const totalPrice = cart.cost?.totalAmount ? parseFloat(cart.cost.totalAmount.amount) : 0;
+  const currencyCode = cart.cost?.totalAmount?.currencyCode || 'USD';
+  const checkoutUrl = cart.checkoutUrl || '';
 
   return { items, totalQuantity, totalPrice, currencyCode, checkoutUrl };
 };
@@ -71,6 +81,7 @@ export const useCartStore = create<CartStore>()(
           
           if (!state.cartId) {
             // Create new cart
+            console.log('Creating new cart with variant:', variantId, 'quantity:', quantity);
             const response = await shopifyFetch({
               query: CREATE_CART_MUTATION,
               variables: {
@@ -79,6 +90,8 @@ export const useCartStore = create<CartStore>()(
                 }
               }
             });
+
+            console.log('Cart creation response:', response);
 
             if (response.data?.cartCreate?.cart) {
               const cart = response.data.cartCreate.cart;
@@ -91,11 +104,15 @@ export const useCartStore = create<CartStore>()(
                 totalPrice,
                 currencyCode,
                 checkoutUrl,
-                isOpen: true,
               });
+              console.log('New cart created successfully:', cart.id);
+            } else if (response.data?.cartCreate?.userErrors?.length > 0) {
+              console.error('Cart creation errors:', response.data.cartCreate.userErrors);
+              throw new Error(response.data.cartCreate.userErrors[0].message);
             }
           } else {
             // Add to existing cart
+            console.log('Adding to existing cart:', state.cartId);
             const response = await shopifyFetch({
               query: ADD_TO_CART_MUTATION,
               variables: {
@@ -103,6 +120,8 @@ export const useCartStore = create<CartStore>()(
                 lines: [{ merchandiseId: variantId, quantity }]
               }
             });
+
+            console.log('Add to cart response:', response);
 
             if (response.data?.cartLinesAdd?.cart) {
               const cart = response.data.cartLinesAdd.cart;
@@ -114,8 +133,11 @@ export const useCartStore = create<CartStore>()(
                 totalPrice,
                 currencyCode,
                 checkoutUrl,
-                isOpen: true,
               });
+              console.log('Item added to existing cart successfully');
+            } else if (response.data?.cartLinesAdd?.userErrors?.length > 0) {
+              console.error('Add to cart errors:', response.data.cartLinesAdd.userErrors);
+              throw new Error(response.data.cartLinesAdd.userErrors[0].message);
             }
           }
         } catch (error) {
@@ -154,6 +176,9 @@ export const useCartStore = create<CartStore>()(
               currencyCode,
               checkoutUrl,
             });
+          } else if (response.data?.cartLinesUpdate?.userErrors?.length > 0) {
+            console.error('Update cart errors:', response.data.cartLinesUpdate.userErrors);
+            throw new Error(response.data.cartLinesUpdate.userErrors[0].message);
           }
         } catch (error) {
           console.error('Error updating cart:', error);

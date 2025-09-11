@@ -27,7 +27,7 @@ export default function ProductClient({ product }: ProductClientProps) {
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   
-  const { addToCart } = useCartStore();
+  const { addToCart, openCart } = useCartStore();
 
   const handleOptionChange = (optionName: string, optionValue: string) => {
     const newSelectedOptions = { ...selectedOptions, [optionName]: optionValue };
@@ -46,21 +46,54 @@ export default function ProductClient({ product }: ProductClientProps) {
   };
 
   const handleAddToCart = async () => {
-    if (!selectedVariant || isAddingToCart) return;
+    if (!selectedVariant || isAddingToCart) {
+      console.log('Cannot add to cart:', { selectedVariant: !!selectedVariant, isAddingToCart });
+      return;
+    }
+
+    console.log('Adding to cart:', {
+      variantId: selectedVariant.id,
+      quantity,
+      productTitle: product.title,
+      variantTitle: selectedVariant.title
+    });
 
     setIsAddingToCart(true);
     try {
       await addToCart(selectedVariant.id, quantity);
-      toast.success(`Added ${quantity} item(s) to cart!`);
+      toast.success(`Added ${quantity} item(s) to cart!`, {
+        duration: 2000,
+        style: {
+          background: '#10B981',
+          color: '#fff',
+        },
+      });
+      
+      // Open cart drawer after successful add
+      setTimeout(() => {
+        openCart();
+      }, 500);
+      
     } catch (error) {
-      toast.error('Failed to add item to cart');
       console.error('Add to cart error:', error);
+      toast.error('Failed to add item to cart. Please try again.', {
+        duration: 3000,
+        style: {
+          background: '#EF4444',
+          color: '#fff',
+        },
+      });
     } finally {
       setIsAddingToCart(false);
     }
   };
 
   const images = product.images.edges.map(edge => edge.node);
+
+  // Debug logging
+  console.log('Product:', product.title);
+  console.log('Selected variant:', selectedVariant);
+  console.log('Available for sale:', selectedVariant?.availableForSale);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -89,7 +122,7 @@ export default function ProductClient({ product }: ProductClientProps) {
           </div>
 
           {/* Variant Options */}
-          {product.options && product.options.map((option) => (
+          {product.options && product.options.length > 0 && product.options.map((option) => (
             <div key={option.id}>
               <h3 className="font-medium text-gray-900 mb-2">{option.name}</h3>
               <div className="flex flex-wrap gap-2">
@@ -140,6 +173,7 @@ export default function ProductClient({ product }: ProductClientProps) {
             className="w-full"
             onClick={handleAddToCart}
             disabled={!selectedVariant?.availableForSale || isAddingToCart}
+            size="lg"
           >
             {isAddingToCart 
               ? 'Adding to Cart...' 
@@ -148,6 +182,16 @@ export default function ProductClient({ product }: ProductClientProps) {
                 : 'Out of Stock'
             }
           </Button>
+
+          {/* Debug Info (remove in production) */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="bg-gray-100 p-4 rounded text-xs">
+              <p><strong>Debug Info:</strong></p>
+              <p>Variant ID: {selectedVariant?.id}</p>
+              <p>Available: {selectedVariant?.availableForSale ? 'Yes' : 'No'}</p>
+              <p>Price: {selectedVariant?.price.amount} {selectedVariant?.price.currencyCode}</p>
+            </div>
+          )}
 
           {/* Additional Info */}
           <div className="border-t pt-6 space-y-4 text-sm text-gray-600">
