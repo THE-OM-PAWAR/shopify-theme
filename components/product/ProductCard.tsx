@@ -25,7 +25,8 @@ export default function ProductCard({ product }: ProductCardProps) {
     (metafield) => metafield && metafield.namespace === 'custom' && metafield.key === 'frame_image'
   );
   const frameImageUrl = frameImageMetafield?.value;
-  const canCustomize = !!frameImageUrl;
+  // Only allow customization if we have a valid HTTP(S) URL, not a Shopify GID
+  const canCustomize = !!frameImageUrl && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'));
   
   // Check if user has customized this product
   const customization = getCustomization(product.id);
@@ -34,8 +35,14 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleCustomizeClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Customize clicked for product:', product.id);
-    console.log('Frame image URL:', frameImageUrl);
+    
+    if (!canCustomize) {
+      console.error('Cannot customize product:', product.id, 'Frame image URL:', frameImageUrl);
+      toast.error('This product cannot be customized. Frame image not properly configured.');
+      return;
+    }
+    
+    console.log('Customize clicked for product:', product.id, 'Frame image URL:', frameImageUrl);
     setIsCustomizationModalOpen(true);
   };
 

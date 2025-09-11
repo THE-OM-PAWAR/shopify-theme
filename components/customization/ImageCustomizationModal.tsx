@@ -55,6 +55,13 @@ export default function ImageCustomizationModal({
   // Load frame image
   useEffect(() => {
     if (frameImageUrl) {
+      // Check if frameImageUrl is a Shopify GID and skip loading
+      if (frameImageUrl.startsWith('gid://shopify/')) {
+        console.error('Frame image URL is a Shopify GID, not a direct URL:', frameImageUrl);
+        toast.error('Frame image configuration error. Please contact support.');
+        return;
+      }
+      
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
@@ -62,8 +69,8 @@ export default function ImageCustomizationModal({
         setFrameImage(img);
       };
       img.onerror = (error) => {
-        console.error('Failed to load frame image:', error);
-        toast.error('Failed to load frame image');
+        console.error('Failed to load frame image:', frameImageUrl, error);
+        toast.error('Failed to load frame image. Please check the image URL.');
       };
       img.src = frameImageUrl;
     }
