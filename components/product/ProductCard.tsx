@@ -30,11 +30,12 @@ export default function ProductCard({ product }: ProductCardProps) {
   
   console.log('ProductCard - Frame image metafield:', frameImageMetafield);
   
-  const frameImageUrl = frameImageMetafield?.value;
+  // Get frame image URL from reference field (for file metafields) or fallback to value
+  const frameImageUrl = frameImageMetafield?.reference?.image?.url || frameImageMetafield?.value;
   console.log('ProductCard - Frame image URL:', frameImageUrl);
   
-  // Allow customization for all products (for testing)
-  const canCustomize = true;
+  // Allow customization if frame image URL exists
+  const canCustomize = !!frameImageUrl;
   console.log('ProductCard - Can customize:', canCustomize);
   
   // Check if user has customized this product
@@ -138,6 +139,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               <Button
                 size="sm"
                 onClick={handleCustomizeClick}
+                disabled={!canCustomize}
                 className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
               >
                 <Palette className="h-4 w-4 mr-1" />
@@ -146,21 +148,24 @@ export default function ProductCard({ product }: ProductCardProps) {
             </div>
             
             {/* Debug Info */}
-            <div className="mt-2 text-xs text-gray-500">
-              <p>Frame URL: {frameImageUrl || 'None'}</p>
-              <p>Can Customize: {canCustomize ? 'Yes' : 'No'}</p>
-            </div>
+            {canCustomize && (
+              <div className="mt-2 text-xs text-gray-500">
+                <p>Frame URL: {frameImageUrl || 'None'}</p>
+                <p>Can Customize: {canCustomize ? 'Yes' : 'No'}</p>
+                <p>Metafield Type: {frameImageMetafield?.reference ? 'File Reference' : 'Text Value'}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Customization Modal */}
-      {isCustomizationModalOpen && (
+      {isCustomizationModalOpen && frameImageUrl && (
         <ImageCustomizationModal
           isOpen={isCustomizationModalOpen}
           onClose={() => setIsCustomizationModalOpen(false)}
           product={product}
-          frameImageUrl={frameImageUrl || 'https://via.placeholder.com/400x600/transparent'}
+          frameImageUrl={frameImageUrl}
         />
       )}
     </>

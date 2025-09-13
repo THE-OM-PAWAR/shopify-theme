@@ -23,6 +23,14 @@ export const FEATURED_COLLECTIONS_QUERY = `
                   namespace
                   key
                   value
+                  reference {
+                    ... on MediaImage {
+                      image {
+                        url
+                        altText
+                      }
+                    }
+                  }
                 }
                 priceRange {
                   minVariantPrice {
@@ -104,6 +112,14 @@ export const PRODUCT_QUERY = `
         namespace
         key
         value
+        reference {
+          ... on MediaImage {
+            image {
+              url
+              altText
+            }
+          }
+        }
       }
       priceRange {
         minVariantPrice {

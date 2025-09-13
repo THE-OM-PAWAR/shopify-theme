@@ -46,6 +46,7 @@ export default function ImageCustomizationModal({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [frameImageLoadError, setFrameImageLoadError] = useState(false);
   
   const { saveCustomization } = useCustomizationStore();
 
@@ -56,25 +57,32 @@ export default function ImageCustomizationModal({
 
   // Load frame image
   useEffect(() => {
-    if (frameImageUrl && frameImageUrl !== 'https://via.placeholder.com/400x600/transparent' && frameImageUrl.trim() !== '' && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'))) {
+    setFrameImageLoadError(false);
+    
+    if (frameImageUrl && frameImageUrl.trim() !== '' && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'))) {
       console.log('Loading frame image:', frameImageUrl);
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         console.log('Frame image loaded successfully');
         setFrameImage(img);
+        setFrameImageLoadError(false);
       };
       img.onerror = (error) => {
         console.error('Failed to load frame image:', frameImageUrl, error);
-        console.log('Using placeholder frame instead');
+        setFrameImageLoadError(true);
+        toast.error('Failed to load custom frame image. Please check the image URL or contact support.');
+        
         // Create a placeholder frame
         const placeholderImg = new Image();
         placeholderImg.onload = () => setFrameImage(placeholderImg);
         placeholderImg.src = 'data:image/svg+xml;base64,' + btoa(`
           <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
-            <rect width="400" height="600" fill="none" stroke="#ccc" stroke-width="2"/>
+            <rect width="400" height="600" fill="rgba(255,255,255,0.9)" stroke="#ff6b6b" stroke-width="2"/>
             <rect x="50" y="100" width="300" height="400" fill="none" stroke="#999" stroke-width="1" stroke-dasharray="5,5"/>
-            <text x="200" y="320" text-anchor="middle" fill="#999" font-family="Arial" font-size="16">Frame Area</text>
+            <text x="200" y="300" text-anchor="middle" fill="#ff6b6b" font-family="Arial" font-size="14">Frame Load Error</text>
+            <text x="200" y="320" text-anchor="middle" fill="#666" font-family="Arial" font-size="12">Using fallback frame</text>
+            <text x="200" y="340" text-anchor="middle" fill="#666" font-family="Arial" font-size="12">Your Image Here</text>
           </svg>
         `);
       };
@@ -82,6 +90,7 @@ export default function ImageCustomizationModal({
     } else {
       // Create a default placeholder frame
       console.log('Creating placeholder frame');
+      setFrameImageLoadError(false);
       const placeholderImg = new Image();
       placeholderImg.onload = () => setFrameImage(placeholderImg);
       placeholderImg.src = 'data:image/svg+xml;base64,' + btoa(`
@@ -434,9 +443,21 @@ export default function ImageCustomizationModal({
               <p><strong>Debug Info:</strong></p>
               <p>Frame URL: {frameImageUrl}</p>
               <p>Frame Loaded: {frameImage ? 'Yes' : 'No'}</p>
+              <p>Frame Load Error: {frameImageLoadError ? 'Yes' : 'No'}</p>
               <p>User Image: {uploadedImage ? 'Loaded' : 'None'}</p>
               <p>Canvas Size: {CANVAS_WIDTH}x{CANVAS_HEIGHT}</p>
             </div>
+
+            {/* Frame Load Error Warning */}
+            {frameImageLoadError && (
+              <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
+                <h4 className="font-medium text-red-900 mb-1">Frame Image Error</h4>
+                <p className="text-sm text-red-800">
+                  The custom frame image failed to load. Using a fallback frame instead.
+                  This might be due to CORS restrictions or an invalid image URL.
+                </p>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-2">

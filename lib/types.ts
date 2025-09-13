@@ -7,6 +7,12 @@ export interface ShopifyProduct {
     namespace: string;
     key: string;
     value: string;
+    reference?: {
+      image?: {
+        url: string;
+        altText: string | null;
+      };
+    };
   }>;
   priceRange: {
     minVariantPrice: {
