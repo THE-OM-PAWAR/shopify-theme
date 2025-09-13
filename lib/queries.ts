@@ -100,10 +100,17 @@ export const PRODUCT_QUERY = `
       handle
       title
       description
-      metafields(identifiers: [{namespace: "custom", key: "frame_image"}]) {
-        namespace
-        key
-        value
+      metafield(namespace: "custom", key: "frame_image") {
+        reference {
+          ... on MediaImage {
+            image {
+              url
+              altText
+              width
+              height
+            }
+          }
+        }
       }
       priceRange {
         minVariantPrice {

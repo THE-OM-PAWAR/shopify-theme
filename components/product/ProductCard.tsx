@@ -21,20 +21,15 @@ export default function ProductCard({ product }: ProductCardProps) {
   const price = product.priceRange.minVariantPrice;
   
   console.log('ProductCard - Product:', product.title);
-  console.log('ProductCard - Product metafields:', product.metafields);
+  console.log('ProductCard - Product metafield:', product.metafield);
   
-  // Check if product has frame image metafield
-  const frameImageMetafield = product.metafields?.find(
-    (metafield) => metafield && metafield.namespace === 'custom' && metafield.key === 'frame_image'
-  );
+  // Get frame image from metafield reference
+  const frameImageUrl = product.metafield?.reference?.image?.url;
   
-  console.log('ProductCard - Frame image metafield:', frameImageMetafield);
-  
-  const frameImageUrl = frameImageMetafield?.value;
   console.log('ProductCard - Frame image URL:', frameImageUrl);
   
-  // Allow customization for all products (for testing)
-  const canCustomize = true;
+  // Allow customization if frame image is available
+  const canCustomize = !!frameImageUrl;
   console.log('ProductCard - Can customize:', canCustomize);
   
   // Check if user has customized this product
@@ -48,6 +43,11 @@ export default function ProductCard({ product }: ProductCardProps) {
     console.log('Customize button clicked for product:', product.title);
     console.log('Frame image URL:', frameImageUrl);
     console.log('Can customize:', canCustomize);
+    
+    if (!frameImageUrl) {
+      toast.error('No frame image available for customization');
+      return;
+    }
     
     console.log('Opening customization modal...');
     setIsCustomizationModalOpen(true);
@@ -98,7 +98,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                   View
                 </Button>
                 
-                {/* Always show customize button for testing */}
+                {canCustomize && (
                 <Button
                   size="sm"
                   onClick={handleCustomizeClick}
@@ -107,6 +107,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                   <Palette className="h-4 w-4 mr-1" />
                   Customize
                 </Button>
+                )}
               </div>
             </div>
           </div>
@@ -134,7 +135,7 @@ export default function ProductCard({ product }: ProductCardProps) {
                 View
               </Button>
               
-              {/* Always show customize button for testing */}
+              {canCustomize && (
               <Button
                 size="sm"
                 onClick={handleCustomizeClick}
@@ -143,24 +144,26 @@ export default function ProductCard({ product }: ProductCardProps) {
                 <Palette className="h-4 w-4 mr-1" />
                 Customize
               </Button>
+              )}
             </div>
             
-            {/* Debug Info */}
-            <div className="mt-2 text-xs text-gray-500">
-              <p>Frame URL: {frameImageUrl || 'None'}</p>
-              <p>Can Customize: {canCustomize ? 'Yes' : 'No'}</p>
-            </div>
+            {/* Customization Status */}
+            {canCustomize && (
+              <div className="mt-2 text-xs text-green-600">
+                ✓ Customizable
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Customization Modal */}
-      {isCustomizationModalOpen && (
+      {isCustomizationModalOpen && frameImageUrl && (
         <ImageCustomizationModal
           isOpen={isCustomizationModalOpen}
           onClose={() => setIsCustomizationModalOpen(false)}
           product={product}
-          frameImageUrl={frameImageUrl || 'https://via.placeholder.com/400x600/transparent'}
+          frameImageUrl={frameImageUrl}
         />
       )}
     </>

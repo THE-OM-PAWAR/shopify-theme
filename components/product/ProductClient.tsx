@@ -14,6 +14,10 @@ interface ProductClientProps {
 
 export default function ProductClient({ product }: ProductClientProps) {
   const { getCustomization } = useCustomizationStore();
+  
+  // Get frame image URL from metafield reference
+  const frameImageUrl = product.metafield?.reference?.image?.url;
+  
   const [selectedVariant, setSelectedVariant] = useState<ShopifyProductVariant | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
     const defaultOptions: Record<string, string> = {};

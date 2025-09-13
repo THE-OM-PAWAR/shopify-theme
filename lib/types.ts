@@ -3,11 +3,16 @@ export interface ShopifyProduct {
   handle: string;
   title: string;
   description: string;
-  metafields?: Array<{
-    namespace: string;
-    key: string;
-    value: string;
-  }>;
+  metafield?: {
+    reference?: {
+      image?: {
+        url: string;
+        altText: string | null;
+        width: number;
+        height: number;
+      };
+    };
+  } | null;
   priceRange: {
     minVariantPrice: {
       amount: string;

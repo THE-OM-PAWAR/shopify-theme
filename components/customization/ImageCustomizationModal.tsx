@@ -56,7 +56,7 @@ export default function ImageCustomizationModal({
 
   // Load frame image
   useEffect(() => {
-    if (frameImageUrl && frameImageUrl !== 'https://via.placeholder.com/400x600/transparent' && frameImageUrl.trim() !== '' && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'))) {
+    if (frameImageUrl && frameImageUrl.trim() !== '' && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'))) {
       console.log('Loading frame image:', frameImageUrl);
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -66,31 +66,12 @@ export default function ImageCustomizationModal({
       };
       img.onerror = (error) => {
         console.error('Failed to load frame image:', frameImageUrl, error);
-        console.log('Using placeholder frame instead');
-        // Create a placeholder frame
-        const placeholderImg = new Image();
-        placeholderImg.onload = () => setFrameImage(placeholderImg);
-        placeholderImg.src = 'data:image/svg+xml;base64,' + btoa(`
-          <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
-            <rect width="400" height="600" fill="none" stroke="#ccc" stroke-width="2"/>
-            <rect x="50" y="100" width="300" height="400" fill="none" stroke="#999" stroke-width="1" stroke-dasharray="5,5"/>
-            <text x="200" y="320" text-anchor="middle" fill="#999" font-family="Arial" font-size="16">Frame Area</text>
-          </svg>
-        `);
+        toast.error('Failed to load frame image');
       };
       img.src = frameImageUrl;
     } else {
-      // Create a default placeholder frame
-      console.log('Creating placeholder frame');
-      const placeholderImg = new Image();
-      placeholderImg.onload = () => setFrameImage(placeholderImg);
-      placeholderImg.src = 'data:image/svg+xml;base64,' + btoa(`
-        <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
-          <rect width="400" height="600" fill="rgba(255,255,255,0.8)" stroke="#ccc" stroke-width="2"/>
-          <rect x="50" y="100" width="300" height="400" fill="transparent" stroke="#999" stroke-width="2"/>
-          <text x="200" y="320" text-anchor="middle" fill="#666" font-family="Arial" font-size="16">Your Image Here</text>
-        </svg>
-      `);
+      console.error('Invalid frame image URL:', frameImageUrl);
+      toast.error('Invalid frame image URL');
     }
   }, [frameImageUrl]);
 
