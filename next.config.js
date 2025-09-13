@@ -1,12 +1,37 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  optimizeFonts: false,
-  eslint: {
-    ignoreDuringBuilds: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cdn.shopify.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+    ],
   },
-  images: { unoptimized: true },
+  // Add font optimization settings to handle font loading issues
+  optimizeFonts: true,
+  // Add experimental features for better error handling
   experimental: {
-    serverComponentsExternalPackages: ['@shopify/storefront-kit-react']
+    // Improve font loading reliability
+    fontLoaders: [
+      {
+        loader: '@next/font/google',
+        options: {
+          subsets: ['latin'],
+          display: 'swap',
+          fallback: ['system-ui', 'arial'],
+        },
+      },
+    ],
+  },
+  // Add timeout configurations
+  serverRuntimeConfig: {
+    // Increase timeout for API routes
+    maxDuration: 30,
   },
 };
 
