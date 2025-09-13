@@ -13,7 +13,7 @@ if (!process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN) {
 
 export const shopifyClient = createStorefrontApiClient({
   storeDomain: process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN,
-  apiVersion: '2025-07',
+  apiVersion: '2024-07',
   publicAccessToken: process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN,
 });
 

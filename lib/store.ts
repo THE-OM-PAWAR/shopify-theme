@@ -26,7 +26,7 @@ interface CartStore {
 
 // Client-side Shopify fetch function
 const shopifyFetchClient = async ({ query, variables = {} }: { query: string; variables?: any }) => {
-  const endpoint = `https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`;
+  const endpoint = `https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN}/api/2024-07/graphql.json`;
   
   try {
     const response = await fetch(endpoint, {
