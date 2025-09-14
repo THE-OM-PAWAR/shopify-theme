@@ -2,8 +2,10 @@ import { shopifyFetchServer } from '@/lib/shopify-server';
 import { FEATURED_COLLECTIONS_QUERY } from '@/lib/queries';
 import { ShopifyCollection } from '@/lib/types';
 import ProductGrid from '@/components/product/ProductGrid';
+import CollectionSlider from '@/components/collection/CollectionSlider';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
 
 async function getFeaturedCollections() {
   try {
@@ -38,6 +40,27 @@ export default async function HomePage() {
               <Link href="/collections">Shop Collections</Link>
             </Button>
           </div>
+        </div>
+      </section>
+
+      {/* Shop by Collection Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Shop by Collection</h2>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Explore our carefully curated collections, each designed to bring you the finest products
+          </p>
+        </div>
+        
+        <CollectionSlider collections={collections} />
+        
+        <div className="text-center mt-8">
+          <Button asChild variant="outline" size="lg">
+            <Link href="/collections" className="inline-flex items-center">
+              View All Collections
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
         </div>
       </section>
 

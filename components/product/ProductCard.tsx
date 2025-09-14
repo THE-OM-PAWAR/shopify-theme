@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShopifyProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useCustomizationStore } from '@/lib/customization-store';
@@ -15,7 +15,8 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const [isCustomizationModalOpen, setIsCustomizationModalOpen] = useState(false);
-  const { getCustomization } = useCustomizationStore();
+  const [currentDisplayImage, setCurrentDisplayImage] = useState(product.images.edges[0]?.node?.url);
+  const { getCustomization, _hasHydrated } = useCustomizationStore();
   
   const image = product.images.edges[0]?.node;
   const price = product.priceRange.minVariantPrice;
@@ -39,8 +40,12 @@ export default function ProductCard({ product }: ProductCardProps) {
   console.log('ProductCard - Can customize:', canCustomize);
   
   // Check if user has customized this product
-  const customization = getCustomization(product.id);
-  const displayImage = customization?.renderedImageUrl || image?.url;
+  useEffect(() => {
+    if (_hasHydrated) {
+      const customization = getCustomization(product.id);
+      setCurrentDisplayImage(customization?.renderedImageUrl || image?.url);
+    }
+  }, [_hasHydrated, product.id, getCustomization, image?.url]);
 
   const handleCustomizeClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -65,12 +70,12 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="group relative">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
           <div className="aspect-square relative overflow-hidden bg-gray-100">
-            {displayImage ? (
+            {currentDisplayImage ? (
               <Image
-                src={displayImage}
+                src={currentDisplayImage}
                 alt={image?.altText || product.title}
                 fill
-                className="object-cover group-hover:scale-105 transition-transform duration-200"
+                className="object-contain group-hover:scale-105 transition-transform duration-200"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
             ) : (
@@ -80,7 +85,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             )}
             
             {/* Customization Badge */}
-            {customization && (
+            {_hasHydrated && getCustomization(product.id) && (
               <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
                 Custom
               </div>

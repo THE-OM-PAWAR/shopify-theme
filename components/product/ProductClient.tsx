@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShopifyProduct, ShopifyProductVariant } from '@/lib/types';
 import { useCartStore } from '@/lib/store';
 import { useCustomizationStore } from '@/lib/customization-store';
@@ -13,8 +13,10 @@ interface ProductClientProps {
 }
 
 export default function ProductClient({ product }: ProductClientProps) {
-  const { getCustomization } = useCustomizationStore();
+  const { getCustomization, _hasHydrated } = useCustomizationStore();
   const [selectedVariant, setSelectedVariant] = useState<ShopifyProductVariant | null>(null);
+  const [hydratedCustomizedImages, setHydratedCustomizedImages] = useState<any[]>([]);
+  const [customizationData, setCustomizationData] = useState<any>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>(() => {
     const defaultOptions: Record<string, string> = {};
     const firstVariant = product.variants.edges[0]?.node;
@@ -37,19 +39,25 @@ export default function ProductClient({ product }: ProductClientProps) {
     }
   });
 
-  // Get customized images
-  const customization = getCustomization(product.id);
-  const customizedImages = customization ? [{
-    id: 'customized',
-    url: customization.renderedImageUrl,
-    altText: `Customized ${product.title}`,
-    width: 400,
-    height: 600
-  }] : [];
+  // Update customized images after hydration
+  useEffect(() => {
+    if (_hasHydrated) {
+      const customization = getCustomization(product.id);
+      setCustomizationData(customization);
+      const customizedImages = customization ? [{
+        id: 'customized',
+        url: customization.renderedImageUrl,
+        altText: `Customized ${product.title}`,
+        width: 400,
+        height: 600
+      }] : [];
+      setHydratedCustomizedImages(customizedImages);
+    }
+  }, [_hasHydrated, product.id, product.title, getCustomization]);
 
   // Combine customized images with product images
   const allImages = [
-    ...customizedImages,
+    ...hydratedCustomizedImages,
     ...product.images.edges.map(edge => edge.node)
   ];
   const handleOptionChange = (optionName: string, optionValue: string) => {
@@ -173,14 +181,20 @@ export default function ProductClient({ product }: ProductClientProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Product Images */}
         <div>
-          <ProductImages images={allImages} productTitle={product.title} />
+          <ProductImages 
+            images={allImages} 
+            productTitle={product.title}
+            productId={product.id}
+            selectedVariant={selectedVariant}
+            metafields={product.metafields}
+          />
         </div>
 
         {/* Product Info */}
         <div className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.title}</h1>
-            {customization && (
+            {customizationData && (
               <div className="mb-2">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   Customized Product

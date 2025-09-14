@@ -6,6 +6,7 @@ import { persist } from 'zustand/middleware';
 export interface CustomizationData {
   originalImageUrl: string;
   renderedImageUrl: string;
+  croppedImageUrl: string;
   frameImageUrl: string;
   imageState: {
     x: number;
@@ -13,11 +14,16 @@ export interface CustomizationData {
     scale: number;
     rotation: number;
   };
+  canvasDimensions: {
+    width: number;
+    height: number;
+  };
   createdAt: string;
 }
 
 interface CustomizationStore {
   customizations: Record<string, CustomizationData>;
+  _hasHydrated: boolean;
   saveCustomization: (productId: string, data: CustomizationData) => void;
   getCustomization: (productId: string) => CustomizationData | null;
   removeCustomization: (productId: string) => void;
@@ -28,6 +34,7 @@ export const useCustomizationStore = create<CustomizationStore>()(
   persist(
     (set, get) => ({
       customizations: {},
+      _hasHydrated: false,
 
       saveCustomization: (productId: string, data: CustomizationData) => {
         console.log('Saving customization for product:', productId, data);
@@ -60,6 +67,11 @@ export const useCustomizationStore = create<CustomizationStore>()(
     {
       name: 'product-customizations',
       partialize: (state) => ({ customizations: state.customizations }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state._hasHydrated = true;
+        }
+      },
     }
   )
 );

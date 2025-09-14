@@ -26,6 +26,11 @@ interface ImageState {
   rotation: number;
 }
 
+interface CanvasDimensions {
+  width: number;
+  height: number;
+}
+
 export default function ImageCustomizationModal({
   isOpen,
   onClose,
@@ -33,9 +38,14 @@ export default function ImageCustomizationModal({
   frameImageUrl
 }: ImageCustomizationModalProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const croppedCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadedImage, setUploadedImage] = useState<HTMLImageElement | null>(null);
   const [frameImage, setFrameImage] = useState<HTMLImageElement | null>(null);
+  const [canvasDimensions, setCanvasDimensions] = useState<CanvasDimensions>({
+    width: 400,
+    height: 600
+  });
   const [imageState, setImageState] = useState<ImageState>({
     x: 200,
     y: 300,
@@ -50,12 +60,9 @@ export default function ImageCustomizationModal({
   
   const { saveCustomization } = useCustomizationStore();
 
-  const CANVAS_WIDTH = 400;
-  const CANVAS_HEIGHT = 600;
-
   console.log('ImageCustomizationModal - Opening with frame URL:', frameImageUrl);
 
-  // Load frame image
+  // Load frame image and calculate canvas dimensions
   useEffect(() => {
     setFrameImageLoadError(false);
     
@@ -64,18 +71,53 @@ export default function ImageCustomizationModal({
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        console.log('Frame image loaded successfully');
+        console.log('Frame image loaded successfully, dimensions:', img.width, 'x', img.height);
         setFrameImage(img);
         setFrameImageLoadError(false);
+        
+        // Calculate canvas dimensions based on frame image aspect ratio
+        const frameAspectRatio = img.width / img.height;
+        const maxWidth = 500; // Maximum canvas width
+        const maxHeight = 700; // Maximum canvas height
+        
+        let canvasWidth, canvasHeight;
+        
+        if (frameAspectRatio > 1) {
+          // Landscape frame
+          canvasWidth = Math.min(maxWidth, img.width);
+          canvasHeight = canvasWidth / frameAspectRatio;
+        } else {
+          // Portrait frame
+          canvasHeight = Math.min(maxHeight, img.height);
+          canvasWidth = canvasHeight * frameAspectRatio;
+        }
+        
+        // Ensure minimum dimensions
+        canvasWidth = Math.max(300, canvasWidth);
+        canvasHeight = Math.max(400, canvasHeight);
+        
+        console.log('Calculated canvas dimensions:', canvasWidth, 'x', canvasHeight);
+        setCanvasDimensions({ width: canvasWidth, height: canvasHeight });
+        
+        // Update initial image position to center
+        setImageState(prev => ({
+          ...prev,
+          x: canvasWidth / 2,
+          y: canvasHeight / 2
+        }));
       };
       img.onerror = (error) => {
         console.error('Failed to load frame image:', frameImageUrl, error);
         setFrameImageLoadError(true);
         toast.error('Failed to load custom frame image. Please check the image URL or contact support.');
         
-        // Create a placeholder frame
+        // Create a placeholder frame with default dimensions
         const placeholderImg = new Image();
-        placeholderImg.onload = () => setFrameImage(placeholderImg);
+        placeholderImg.onload = () => {
+          setFrameImage(placeholderImg);
+          setCanvasDimensions({ width: 400, height: 600 });
+          setImageState(prev => ({ ...prev, x: 200, y: 300 }));
+        };
         placeholderImg.src = 'data:image/svg+xml;base64,' + btoa(`
           <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
             <rect width="400" height="600" fill="rgba(255,255,255,0.9)" stroke="#ff6b6b" stroke-width="2"/>
@@ -92,7 +134,11 @@ export default function ImageCustomizationModal({
       console.log('Creating placeholder frame');
       setFrameImageLoadError(false);
       const placeholderImg = new Image();
-      placeholderImg.onload = () => setFrameImage(placeholderImg);
+      placeholderImg.onload = () => {
+        setFrameImage(placeholderImg);
+        setCanvasDimensions({ width: 400, height: 600 });
+        setImageState(prev => ({ ...prev, x: 200, y: 300 }));
+      };
       placeholderImg.src = 'data:image/svg+xml;base64,' + btoa(`
         <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
           <rect width="400" height="600" fill="rgba(255,255,255,0.8)" stroke="#ccc" stroke-width="2"/>
@@ -106,7 +152,8 @@ export default function ImageCustomizationModal({
   // Draw canvas
   useEffect(() => {
     drawCanvas();
-  }, [uploadedImage, frameImage, imageState]);
+    drawCroppedCanvas();
+  }, [uploadedImage, frameImage, imageState, canvasDimensions]);
 
   const drawCanvas = () => {
     const canvas = canvasRef.current;
@@ -115,9 +162,13 @@ export default function ImageCustomizationModal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Set canvas dimensions
+    canvas.width = canvasDimensions.width;
+    canvas.height = canvasDimensions.height;
+
     // Clear canvas with white background
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    ctx.fillRect(0, 0, canvasDimensions.width, canvasDimensions.height);
 
     // Draw uploaded image if available (behind frame)
     if (uploadedImage) {
@@ -130,14 +181,14 @@ export default function ImageCustomizationModal({
       
       // Calculate image dimensions to fit canvas while maintaining aspect ratio
       const imgAspect = uploadedImage.width / uploadedImage.height;
-      const canvasAspect = CANVAS_WIDTH / CANVAS_HEIGHT;
+      const canvasAspect = canvasDimensions.width / canvasDimensions.height;
       
       let drawWidth, drawHeight;
       if (imgAspect > canvasAspect) {
-        drawWidth = CANVAS_WIDTH * 0.8; // Make it smaller so it fits nicely
+        drawWidth = canvasDimensions.width * 0.8; // Make it smaller so it fits nicely
         drawHeight = drawWidth / imgAspect;
       } else {
-        drawHeight = CANVAS_HEIGHT * 0.8;
+        drawHeight = canvasDimensions.height * 0.8;
         drawWidth = drawHeight * imgAspect;
       }
       
@@ -155,8 +206,55 @@ export default function ImageCustomizationModal({
 
     // Draw frame image on top
     if (frameImage) {
-      ctx.drawImage(frameImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.drawImage(frameImage, 0, 0, canvasDimensions.width, canvasDimensions.height);
     }
+  };
+
+  const drawCroppedCanvas = () => {
+    const croppedCanvas = croppedCanvasRef.current;
+    if (!croppedCanvas || !uploadedImage) return;
+
+    const ctx = croppedCanvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set cropped canvas dimensions to match main canvas
+    croppedCanvas.width = canvasDimensions.width;
+    croppedCanvas.height = canvasDimensions.height;
+
+    // Clear canvas with transparent background
+    ctx.clearRect(0, 0, canvasDimensions.width, canvasDimensions.height);
+
+    // Draw only the uploaded image without the frame
+    ctx.save();
+    
+    // Apply transformations
+    ctx.translate(imageState.x, imageState.y);
+    ctx.rotate((imageState.rotation * Math.PI) / 180);
+    ctx.scale(imageState.scale, imageState.scale);
+    
+    // Calculate image dimensions to fit canvas while maintaining aspect ratio
+    const imgAspect = uploadedImage.width / uploadedImage.height;
+    const canvasAspect = canvasDimensions.width / canvasDimensions.height;
+    
+    let drawWidth, drawHeight;
+    if (imgAspect > canvasAspect) {
+      drawWidth = canvasDimensions.width * 0.8;
+      drawHeight = drawWidth / imgAspect;
+    } else {
+      drawHeight = canvasDimensions.height * 0.8;
+      drawWidth = drawHeight * imgAspect;
+    }
+    
+    // Draw image centered
+    ctx.drawImage(
+      uploadedImage,
+      -drawWidth / 2,
+      -drawHeight / 2,
+      drawWidth,
+      drawHeight
+    );
+    
+    ctx.restore();
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,8 +272,8 @@ export default function ImageCustomizationModal({
         setUploadedImage(img);
         // Reset image position to center
         setImageState({
-          x: CANVAS_WIDTH / 2,
-          y: CANVAS_HEIGHT / 2,
+          x: canvasDimensions.width / 2,
+          y: canvasDimensions.height / 2,
           scale: 1,
           rotation: 0
         });
@@ -246,8 +344,8 @@ export default function ImageCustomizationModal({
 
   const handleReset = () => {
     setImageState({
-      x: CANVAS_WIDTH / 2,
-      y: CANVAS_HEIGHT / 2,
+      x: canvasDimensions.width / 2,
+      y: canvasDimensions.height / 2,
       scale: 1,
       rotation: 0
     });
@@ -267,7 +365,7 @@ export default function ImageCustomizationModal({
   };
 
   const handleSave = async () => {
-    if (!uploadedImage || !canvasRef.current) {
+    if (!uploadedImage || !canvasRef.current || !croppedCanvasRef.current) {
       toast.error('Please upload an image first');
       return;
     }
@@ -286,26 +384,32 @@ export default function ImageCustomizationModal({
         originalCtx.drawImage(uploadedImage, 0, 0);
       }
 
-      // Get rendered canvas blob
+      // Get rendered canvas blob (with frame)
       const renderedBlob = await canvasToBlob(canvasRef.current);
+      // Get cropped canvas blob (without frame)
+      const croppedBlob = await canvasToBlob(croppedCanvasRef.current);
+      // Get original image blob
       const originalBlob = await canvasToBlob(originalCanvas);
 
       console.log('Blobs created, uploading to Cloudinary...');
       
-      // Upload both images to Cloudinary
-      const [renderedUrl, originalUrl] = await Promise.all([
+      // Upload all images to Cloudinary
+      const [renderedUrl, croppedUrl, originalUrl] = await Promise.all([
         uploadToCloudinary(renderedBlob, `${product.handle}-rendered-${Date.now()}`),
+        uploadToCloudinary(croppedBlob, `${product.handle}-cropped-${Date.now()}`),
         uploadToCloudinary(originalBlob, `${product.handle}-original-${Date.now()}`)
       ]);
 
-      console.log('Images uploaded:', { renderedUrl, originalUrl });
+      console.log('Images uploaded:', { renderedUrl, croppedUrl, originalUrl });
 
       // Save customization data
       saveCustomization(product.id, {
         originalImageUrl: originalUrl,
         renderedImageUrl: renderedUrl,
+        croppedImageUrl: croppedUrl, // New field for cropped image
         frameImageUrl,
         imageState,
+        canvasDimensions, // Save canvas dimensions for reference
         createdAt: new Date().toISOString()
       });
 
@@ -321,7 +425,7 @@ export default function ImageCustomizationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Customize {product.title}</span>
@@ -335,16 +439,26 @@ export default function ImageCustomizationModal({
           {/* Canvas Section */}
           <div className="space-y-4">
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+              <h4 className="text-sm font-medium mb-2">Preview with Frame</h4>
               <canvas
                 ref={canvasRef}
-                width={CANVAS_WIDTH}
-                height={CANVAS_HEIGHT}
+                width={canvasDimensions.width}
+                height={canvasDimensions.height}
                 className="border border-gray-300 rounded bg-white cursor-move mx-auto block"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
                 style={{ maxWidth: '100%', height: 'auto' }}
+              />
+            </div>
+
+            {/* Hidden cropped canvas for processing */}
+            <div className="hidden">
+              <canvas
+                ref={croppedCanvasRef}
+                width={canvasDimensions.width}
+                height={canvasDimensions.height}
               />
             </div>
 
@@ -438,14 +552,17 @@ export default function ImageCustomizationModal({
               </ul>
             </div>
 
-            {/* Debug Info */}
+            {/* Canvas Info */}
             <div className="bg-gray-100 p-3 rounded text-xs">
-              <p><strong>Debug Info:</strong></p>
+              <p><strong>Canvas Info:</strong></p>
               <p>Frame URL: {frameImageUrl}</p>
               <p>Frame Loaded: {frameImage ? 'Yes' : 'No'}</p>
               <p>Frame Load Error: {frameImageLoadError ? 'Yes' : 'No'}</p>
               <p>User Image: {uploadedImage ? 'Loaded' : 'None'}</p>
-              <p>Canvas Size: {CANVAS_WIDTH}x{CANVAS_HEIGHT}</p>
+              <p>Canvas Size: {canvasDimensions.width}x{canvasDimensions.height}</p>
+              {frameImage && (
+                <p>Frame Aspect Ratio: {(frameImage.width / frameImage.height).toFixed(2)}</p>
+              )}
             </div>
 
             {/* Frame Load Error Warning */}

@@ -13,6 +13,7 @@ interface CartStore {
   currencyCode: string;
   checkoutUrl: string | null;
   isLoading: boolean;
+  _hasHydrated: boolean;
   
   // Actions
   addToCart: (variantId: string, quantity: number) => Promise<void>;
@@ -108,6 +109,7 @@ export const useCartStore = create<CartStore>()(
       currencyCode: 'USD',
       checkoutUrl: null,
       isLoading: false,
+      _hasHydrated: false,
 
       addToCart: async (variantId: string, quantity: number) => {
         set({ isLoading: true });
@@ -286,6 +288,11 @@ export const useCartStore = create<CartStore>()(
         currencyCode: state.currencyCode,
         checkoutUrl: state.checkoutUrl,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state._hasHydrated = true;
+        }
+      },
     }
   )
 );

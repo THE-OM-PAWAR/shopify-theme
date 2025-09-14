@@ -19,7 +19,11 @@ export const FEATURED_COLLECTIONS_QUERY = `
                 id
                 handle
                 title
-                metafields(identifiers: [{namespace: "custom", key: "frame_image"}]) {
+                metafields(identifiers: [
+                  {namespace: "custom", key: "frame_image"},
+                  {namespace: "custom", key: "frame_cover"},
+                  {namespace: "custom", key: "frame_length"}
+                ]) {
                   namespace
                   key
                   value
@@ -108,7 +112,11 @@ export const PRODUCT_QUERY = `
       handle
       title
       description
-      metafields(identifiers: [{namespace: "custom", key: "frame_image"}]) {
+      metafields(identifiers: [
+        {namespace: "custom", key: "frame_image"},
+        {namespace: "custom", key: "frame_cover"},
+        {namespace: "custom", key: "frame_length"}
+      ]) {
         namespace
         key
         value

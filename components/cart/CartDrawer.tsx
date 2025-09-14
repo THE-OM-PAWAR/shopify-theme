@@ -16,18 +16,19 @@ export default function CartDrawer() {
     currencyCode,
     checkoutUrl,
     isLoading,
+    _hasHydrated,
     closeCart,
     updateCartItem,
     removeFromCart,
     refreshCart,
   } = useCartStore();
 
-  const { getCustomization } = useCustomizationStore();
+  const { getCustomization, _hasHydrated: customizationHasHydrated } = useCustomizationStore();
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && _hasHydrated) {
       refreshCart();
     }
-  }, [isOpen, refreshCart]);
+  }, [isOpen, _hasHydrated, refreshCart]);
 
   if (!isOpen) return null;
 
@@ -53,7 +54,7 @@ export default function CartDrawer() {
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <ShoppingBag className="h-5 w-5" />
-            Shopping Cart ({items.length})
+            Shopping Cart ({_hasHydrated ? items.length : 0})
           </h2>
           <Button variant="ghost" size="sm" onClick={closeCart}>
             <X className="h-5 w-5" />
@@ -62,10 +63,10 @@ export default function CartDrawer() {
 
         {/* Cart Items */}
         <div className="flex-1 overflow-y-auto p-4">
-          {isLoading ? (
+          {!_hasHydrated || isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-              <p className="text-gray-500 mt-2">Loading cart...</p>
+              <p className="text-gray-500 mt-2">{!_hasHydrated ? 'Loading...' : 'Loading cart...'}</p>
             </div>
           ) : items.length === 0 ? (
             <div className="text-center py-8">
@@ -79,7 +80,7 @@ export default function CartDrawer() {
             <div className="space-y-4">
               {items.map((item) => {
                 // Check if this product has customization
-                const customization = getCustomization(item.productId);
+                const customization = _hasHydrated && customizationHasHydrated ? getCustomization(item.productId) : null;
                 const displayImage = customization?.renderedImageUrl || item.image;
                 
                 return (
@@ -156,7 +157,7 @@ export default function CartDrawer() {
         </div>
 
         {/* Footer */}
-        {items.length > 0 && (
+        {_hasHydrated && items.length > 0 && (
           <div className="border-t p-4 space-y-4 bg-gray-50">
             <div className="flex justify-between items-center">
               <span className="font-semibold text-lg">Total:</span>
