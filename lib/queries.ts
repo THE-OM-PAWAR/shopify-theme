@@ -404,3 +404,90 @@ export const ALL_PRODUCTS_HANDLES_QUERY = `
     }
   }
 `;
+
+export const ALL_PRODUCTS_QUERY = `
+  query AllProducts($first: Int!, $after: String) {
+    products(first: $first, after: $after) {
+      edges {
+        node {
+          id
+          handle
+          title
+          description
+          metafields(identifiers: [
+            {namespace: "custom", key: "frame_image"},
+            {namespace: "custom", key: "frame_cover"},
+            {namespace: "custom", key: "frame_length"},
+            {namespace: "custom", key: "frame_size"}
+          ]) {
+            namespace
+            key
+            value
+            reference {
+              ... on MediaImage {
+                image {
+                  url
+                  altText
+                }
+              }
+            }
+          }
+          priceRange {
+            minVariantPrice {
+              amount
+              currencyCode
+            }
+            maxVariantPrice {
+              amount
+              currencyCode
+            }
+          }
+          images(first: 5) {
+            edges {
+              node {
+                id
+                url
+                altText
+                width
+                height
+              }
+            }
+          }
+          variants(first: 10) {
+            edges {
+              node {
+                id
+                title
+                price {
+                  amount
+                  currencyCode
+                }
+                availableForSale
+                selectedOptions {
+                  name
+                  value
+                }
+                image {
+                  url
+                  altText
+                  width
+                  height
+                }
+              }
+            }
+          }
+          options {
+            id
+            name
+            values
+          }
+        }
+        cursor
+      }
+      pageInfo {
+        hasNextPage
+        hasPreviousPage
+      }
+    }
+  }
+`;
