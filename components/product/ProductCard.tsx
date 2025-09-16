@@ -65,9 +65,17 @@ export default function ProductCard({ product }: ProductCardProps) {
     window.location.href = `/products/${product.handle}`;
   };
 
+  const handleCardClick = () => {
+    if (canCustomize && frameImageUrl) {
+      setIsCustomizationModalOpen(true);
+    } else {
+      window.location.href = `/products/${product.handle}`;
+    }
+  };
+
   return (
     <>
-      <div className="group relative">
+      <div className="group relative cursor-pointer" onClick={handleCardClick}>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
           <div className="aspect-square relative overflow-hidden bg-gray-100">
             {currentDisplayImage ? (
@@ -104,15 +112,16 @@ export default function ProductCard({ product }: ProductCardProps) {
                   View
                 </Button>
                 
-                {/* Always show customize button for testing */}
-                <Button
-                  size="sm"
-                  onClick={handleCustomizeClick}
-                  className="bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  <Palette className="h-4 w-4 mr-1" />
-                  Customize
-                </Button>
+                {canCustomize && (
+                  <Button
+                    size="sm"
+                    onClick={handleCustomizeClick}
+                    className="bg-blue-600 text-white hover:bg-blue-700"
+                  >
+                    <Palette className="h-4 w-4 mr-1" />
+                    Customize
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -140,26 +149,17 @@ export default function ProductCard({ product }: ProductCardProps) {
                 View
               </Button>
               
-              {/* Always show customize button for testing */}
-              <Button
-                size="sm"
-                onClick={handleCustomizeClick}
-                disabled={!canCustomize}
-                className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
-              >
-                <Palette className="h-4 w-4 mr-1" />
-                Customize
-              </Button>
+              {canCustomize && (
+                <Button
+                  size="sm"
+                  onClick={handleCustomizeClick}
+                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  <Palette className="h-4 w-4 mr-1" />
+                  Customize
+                </Button>
+              )}
             </div>
-            
-            {/* Debug Info */}
-            {canCustomize && (
-              <div className="mt-2 text-xs text-gray-500">
-                <p>Frame URL: {frameImageUrl || 'None'}</p>
-                <p>Can Customize: {canCustomize ? 'Yes' : 'No'}</p>
-                <p>Metafield Type: {frameImageMetafield?.reference ? 'File Reference' : 'Text Value'}</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
