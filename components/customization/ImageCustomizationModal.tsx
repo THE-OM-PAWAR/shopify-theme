@@ -80,7 +80,7 @@ export default function ImageCustomizationModal({
         const maxWidth = 500; // Maximum canvas width
         const maxHeight = 700; // Maximum canvas height
         
-        let canvasWidth, canvasHeight;
+        let canvasWidth: number, canvasHeight: number;
         
         if (frameAspectRatio > 1) {
           // Landscape frame
@@ -540,30 +540,6 @@ export default function ImageCustomizationModal({
               )}
             </div>
 
-            {/* Instructions */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">How to use:</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>1. Upload your image using the browse button</li>
-                <li>2. Drag the image on canvas to position it</li>
-                <li>3. Use sliders to adjust size and rotation</li>
-                <li>4. Your image will show through the frame</li>
-                <li>5. Click save when you're happy with the result</li>
-              </ul>
-            </div>
-
-            {/* Canvas Info */}
-            <div className="bg-gray-100 p-3 rounded text-xs">
-              <p><strong>Canvas Info:</strong></p>
-              <p>Frame URL: {frameImageUrl}</p>
-              <p>Frame Loaded: {frameImage ? 'Yes' : 'No'}</p>
-              <p>Frame Load Error: {frameImageLoadError ? 'Yes' : 'No'}</p>
-              <p>User Image: {uploadedImage ? 'Loaded' : 'None'}</p>
-              <p>Canvas Size: {canvasDimensions.width}x{canvasDimensions.height}</p>
-              {frameImage && (
-                <p>Frame Aspect Ratio: {(frameImage.width / frameImage.height).toFixed(2)}</p>
-              )}
-            </div>
 
             {/* Frame Load Error Warning */}
             {frameImageLoadError && (
