@@ -377,6 +377,11 @@ export default function ImageCustomizationModal({
     }
   };
 
+  const handleSkip = () => {
+    router.push(`/products/${product.handle}`);
+    onClose();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl w-[95vw] h-[90vh] overflow-auto lg:overflow-hidden p-0">
@@ -529,6 +534,9 @@ export default function ImageCustomizationModal({
               {/* Action Buttons */}
               <div className="border-t border-gray-100 p-4 sm:p-6">
                 <div className="flex gap-3">
+                  <Button variant="secondary" onClick={handleSkip} className="flex-1" size="sm">
+                    Skip
+                  </Button>
                   <Button variant="outline" onClick={onClose} className="flex-1" size="sm">
                     Cancel
                   </Button>

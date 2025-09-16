@@ -55,10 +55,30 @@ export default function ProductClient({ product }: ProductClientProps) {
     }
   }, [_hasHydrated, product.id, product.title, getCustomization]);
 
-  // Combine customized images with product images
+  // Collect variant images to exclude them from the main product gallery
+  const variantImages = product.variants.edges
+    .map(edge => edge.node.image)
+    .filter(Boolean) as Array<{ id?: string; url?: string }>;
+
+  const variantImageIdSet = new Set(
+    variantImages.map(img => img.id).filter(Boolean) as string[]
+  );
+  const variantImageUrlSet = new Set(
+    variantImages.map(img => img.url).filter(Boolean) as string[]
+  );
+
+  // Combine customized images with product images, excluding variant images
+  const productImagesExcludingVariants = product.images.edges
+    .map(edge => edge.node)
+    .filter(img => {
+      const matchesById = img.id ? variantImageIdSet.has(img.id) : false;
+      const matchesByUrl = (img as any).url ? variantImageUrlSet.has((img as any).url) : false;
+      return !(matchesById || matchesByUrl);
+    });
+
   const allImages = [
     ...hydratedCustomizedImages,
-    ...product.images.edges.map(edge => edge.node)
+    ...productImagesExcludingVariants
   ];
   const handleOptionChange = (optionName: string, optionValue: string) => {
     const newSelectedOptions = { ...selectedOptions, [optionName]: optionValue };
@@ -171,10 +191,6 @@ export default function ProductClient({ product }: ProductClientProps) {
   };
 
 
-  // Debug logging
-  console.log('Product:', product.title);
-  console.log('Selected variant:', selectedVariant);
-  console.log('Available for sale:', selectedVariant?.availableForSale);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -213,7 +229,43 @@ export default function ProductClient({ product }: ProductClientProps) {
           </div>
 
           <div className="prose max-w-none">
-            <p className="text-gray-600">{product.description}</p>
+            <style jsx>{`
+              .clamp-3-lines {
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: normal;
+                transition: max-height 0.2s;
+              }
+              .expanded {
+                -webkit-line-clamp: unset;
+                max-height: none;
+                overflow: visible;
+              }
+            `}</style>
+            {(() => {
+              const [expanded, setExpanded] = useState(false);
+              return (
+                <>
+                  <p
+                    className={`text-gray-600 clamp-3-lines${expanded ? ' expanded' : ''}`}
+                  >
+                    {product.description}
+                  </p>
+                  {product.description && (
+                    <button
+                      type="button"
+                      className="mt-2 text-blue-600 hover:underline text-sm font-medium focus:outline-none"
+                      onClick={() => setExpanded((prev) => !prev)}
+                    >
+                      {expanded ? 'View less' : 'View more'}
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Variant Options */}
@@ -290,17 +342,6 @@ export default function ProductClient({ product }: ProductClientProps) {
             </Button>
           </div>
 
-          {/* Debug Info (remove in production) */}
-          {process.env.NODE_ENV === 'development' && selectedVariant && (
-            <div className="bg-gray-100 p-4 rounded text-xs">
-              <p><strong>Debug Info:</strong></p>
-              <p>Variant ID: {selectedVariant.id}</p>
-              <p>Variant Title: {selectedVariant.title}</p>
-              <p>Available: {selectedVariant.availableForSale ? 'Yes' : 'No'}</p>
-              <p>Price: {selectedVariant.price.amount} {selectedVariant.price.currencyCode}</p>
-              <p>Selected Options: {JSON.stringify(selectedOptions)}</p>
-            </div>
-          )}
 
           {/* Additional Info */}
           <div className="border-t pt-6 space-y-4 text-sm text-gray-600">
