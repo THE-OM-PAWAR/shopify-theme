@@ -34,7 +34,7 @@ export default function Header() {
               <Link
                 key={item.name}
                 href={item.href}
-                className="text-gray-700 hover:text-gray-900 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+                className="text-gray-700 hover:text-gray-900 hover:bg-gray-50 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
               >
                 {item.name}
               </Link>
@@ -43,7 +43,7 @@ export default function Header() {
 
           {/* Actions */}
           <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="sm" className="hidden sm:flex hover:bg-gray-50 rounded-lg">
+            <Button variant="ghost" size="sm" className="hidden sm:flex hover:bg-gray-50 rounded-xl">
               <Search className="h-5 w-5" />
             </Button>
             
@@ -51,7 +51,7 @@ export default function Header() {
               variant="ghost"
               size="sm"
               onClick={openCart}
-              className="relative hover:bg-gray-50 rounded-lg"
+              className="relative hover:bg-gray-50 rounded-xl"
             >
               <ShoppingBag className="h-5 w-5" />
               {_hasHydrated && totalQuantity > 0 && (
@@ -65,7 +65,7 @@ export default function Header() {
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden hover:bg-gray-50 rounded-lg"
+              className="md:hidden hover:bg-gray-50 rounded-xl"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -82,7 +82,7 @@ export default function Header() {
               <Link
                 key={item.name}
                 href={item.href}
-                className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+                className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 {item.name}
