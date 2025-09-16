@@ -22,7 +22,8 @@ export const FEATURED_COLLECTIONS_QUERY = `
                 metafields(identifiers: [
                   {namespace: "custom", key: "frame_image"},
                   {namespace: "custom", key: "frame_cover"},
-                  {namespace: "custom", key: "frame_length"}
+                  {namespace: "custom", key: "frame_length"},
+              {namespace: "custom", key: "frame_size"}
                 ]) {
                   namespace
                   key
@@ -115,7 +116,8 @@ export const PRODUCT_QUERY = `
       metafields(identifiers: [
         {namespace: "custom", key: "frame_image"},
         {namespace: "custom", key: "frame_cover"},
-        {namespace: "custom", key: "frame_length"}
+        {namespace: "custom", key: "frame_length"},
+        {namespace: "custom", key: "frame_size"}
       ]) {
         namespace
         key

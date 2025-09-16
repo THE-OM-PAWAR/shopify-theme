@@ -185,7 +185,8 @@ export default function ProductClient({ product }: ProductClientProps) {
             images={allImages} 
             productTitle={product.title}
             productId={product.id}
-            selectedVariant={selectedVariant}
+            selectedVariant={selectedVariant || undefined}
+            allVariants={product.variants.edges.map(edge => edge.node)}
             metafields={product.metafields}
           />
         </div>

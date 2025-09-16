@@ -29,6 +29,7 @@ interface ProductImagesProps {
   frameCoverUrl?: string;
   frameLengthUrl?: string;
   selectedVariant?: ProductVariant;
+  allVariants?: ProductVariant[];
   metafields?: Array<{
     namespace: string;
     key: string;
@@ -47,19 +48,78 @@ export default function ProductImages({
   productTitle, 
   productId,
   selectedVariant,
+  allVariants,
   metafields 
 }: ProductImagesProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // Extract metafield URLs
-  const frameCoverMetafield = metafields?.find(
-    (metafield) => metafield && metafield.namespace === 'custom' && metafield.key === 'frame_cover'
+  // Filter out null/undefined metafields and extract metafield URLs
+  const validMetafields = metafields?.filter(metafield => metafield != null) || [];
+  
+  const frameCoverMetafield = validMetafields.find(
+    (metafield) => metafield.namespace === 'custom' && metafield.key === 'frame_cover'
+  );
+  const frameImageMetafield = validMetafields.find(
+    (metafield) => metafield.namespace === 'custom' && metafield.key === 'frame_image'
+  );
+  const frameSizeMetafield = validMetafields.find(
+    (metafield) => metafield.namespace === 'custom' && metafield.key === 'frame_size'
   );
   
-  // Use frame_cover as the background for preview
+  // Extract frame size value
+  const frameSizeValue = frameSizeMetafield?.value;
+  
+  console.log('=== METAFIELD DEBUG ===');
+  console.log('Total valid metafields:', validMetafields.length);
+  if (validMetafields.length > 0) {
+    validMetafields.forEach((metafield, index) => {
+      console.log(`Valid Metafield ${index}:`, {
+        namespace: metafield.namespace,
+        key: metafield.key,
+        value: metafield.value,
+        hasReference: !!metafield.reference
+      });
+    });
+  }
+  
+  // Specific debugging for frame_size
+  console.log('=== FRAME SIZE DEBUG ===');
+  console.log('frameSizeMetafield:', frameSizeMetafield);
+  console.log('frameSizeValue:', frameSizeValue);
+  console.log('frameSizeValue type:', typeof frameSizeValue);
+  if (frameSizeValue) {
+    console.log('frameSizeValue length:', frameSizeValue.length);
+    try {
+      console.log('frameSizeValue parsed:', JSON.parse(frameSizeValue));
+    } catch (e) {
+      console.log('frameSizeValue could not be parsed as JSON:', e);
+    }
+  }
+  console.log('=== END FRAME SIZE DEBUG ===');
+  
   const frameCoverUrl = frameCoverMetafield?.reference?.image?.url || frameCoverMetafield?.value;
   
-  // Check if this product has frame customization capability
+  // Ensure frameSizeValue is properly handled
+  const finalFrameSizeValue = frameSizeValue || null;
+  console.log('Final frameSizeValue being passed to FramePreview:', finalFrameSizeValue);
+  
+  // Calculate the correct variant index for frame size
+  const getVariantIndex = (): number => {
+    if (!selectedVariant || !allVariants || allVariants.length === 0) {
+      return 0;
+    }
+    
+    const variantIndex = allVariants.findIndex(variant => variant.id === selectedVariant.id);
+    console.log('Selected variant ID:', selectedVariant.id);
+    console.log('All variant IDs:', allVariants.map(v => v.id));
+    console.log('Calculated variant index:', variantIndex);
+    
+    return variantIndex >= 0 ? variantIndex : 0;
+  };
+  
+  const currentVariantIndex = getVariantIndex();
+  console.log('Using variant index:', currentVariantIndex, 'for frame size array');
+  
   const hasFrameCustomization = !!(frameCoverUrl && selectedVariant?.image?.url);
 
   if (images.length === 0) {
@@ -99,6 +159,8 @@ export default function ProductImages({
               productId={productId!}
               frameCoverUrl={frameCoverUrl}
               variantImageUrl={selectedVariant?.image?.url}
+              frameSizeMeta={finalFrameSizeValue}
+              variantIndex={currentVariantIndex}
               width={400}
               height={600}
               className="max-w-full max-h-full"
@@ -154,6 +216,8 @@ export default function ProductImages({
                     productId={productId!}
                     frameCoverUrl={frameCoverUrl}
                     variantImageUrl={selectedVariant?.image?.url}
+                    frameSizeMeta={finalFrameSizeValue}
+                    variantIndex={0}
                     width={80}
                     height={120}
                     className="max-w-full max-h-full"
