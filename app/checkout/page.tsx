@@ -444,7 +444,7 @@ export default function CheckoutPage() {
               {items.map((item) => {
                 // Check if this product has customization
                 const customization = getCustomization(item.productId);
-                const displayImage = customization?.previewImage || item.image;
+                const displayImage = customization?.renderedImageUrl || item.image;
                 
                 return (
                   <div key={item.id} className="flex items-start space-x-4">
