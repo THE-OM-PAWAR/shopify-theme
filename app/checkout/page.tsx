@@ -32,7 +32,7 @@ interface CheckoutFormData {
 
 export default function CheckoutPage() {
   const { items, totalPrice, currencyCode, clearCart } = useCartStore();
-  const { getCustomization } = useCustomizationStore();
+  const { getCustomization, removeCustomization } = useCustomizationStore();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<CheckoutFormData>({
     email: '',
@@ -119,6 +119,28 @@ export default function CheckoutPage() {
 
     setIsLoading(true);
     try {
+      // Collect customization data for items that have customizations
+      const customizations: Array<{
+        originalImageUrl: string;
+        croppedImageUrl: string;
+        renderedImageUrl: string;
+        productTitle: string;
+        variantTitle: string;
+      }> = [];
+      
+      items.forEach(item => {
+        const customization = getCustomization(item.productId);
+        if (customization) {
+          customizations.push({
+            originalImageUrl: customization.originalImageUrl,
+            croppedImageUrl: customization.croppedImageUrl,
+            renderedImageUrl: customization.renderedImageUrl,
+            productTitle: item.title,
+            variantTitle: item.variantTitle || 'Default'
+          });
+        }
+      });
+      
       // Prepare order data for Shopify
       const orderData = {
         email: formData.email,
@@ -159,9 +181,13 @@ export default function CheckoutPage() {
           price: shipping.toFixed(2),
         }] : [],
         payment_method: formData.paymentMethod,
+        customizations: customizations, // Include customization data
       };
 
       console.log('Creating order with data:', orderData);
+      if (customizations.length > 0) {
+        console.log('Order includes customizations for', customizations.length, 'products');
+      }
 
       const response = await fetch('/api/create-order', {
         method: 'POST',
@@ -176,6 +202,18 @@ export default function CheckoutPage() {
       if (response.ok && result.success) {
         toast.success('Order placed successfully!');
         clearCart();
+        
+        // Clear customizations from local storage after successful order
+        if (customizations.length > 0) {
+          items.forEach(item => {
+            const customization = getCustomization(item.productId);
+            if (customization) {
+              // Remove customizations from local storage since they're now processed
+              removeCustomization(item.productId);
+              console.log(`Customization for ${item.title} has been processed and uploaded to Shopify`);
+            }
+          });
+        }
         
         // Redirect to success page with order details
         const params = new URLSearchParams({

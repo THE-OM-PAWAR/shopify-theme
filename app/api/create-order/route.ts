@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
+interface CustomizationData {
+  originalImageUrl: string;
+  croppedImageUrl: string;
+  renderedImageUrl: string;
+  productTitle: string;
+  variantTitle: string;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const orderData = await req.json();
@@ -26,6 +34,9 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Extract customization data from order
+    const customizations: CustomizationData[] = orderData.customizations || [];
 
     // Build the Shopify order payload
     const shopifyOrder = {
@@ -101,6 +112,71 @@ export async function POST(req: NextRequest) {
 
     const order = result.order;
     
+    // Upload customization images to Shopify if any exist
+    let imageUploadResults = null;
+    let cloudinaryCleanupResults = null;
+    
+    if (customizations.length > 0) {
+      try {
+        console.log('Uploading customization images to Shopify...');
+        
+        // Prepare image data for upload
+        const imageUploadData = customizations.map(customization => ({
+          ...customization,
+          orderNumber: order.order_number || order.name || order.id.toString()
+        }));
+        
+        // Upload images to Shopify
+        const uploadResponse = await fetch(`${req.nextUrl.origin}/api/upload-order-images`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ images: imageUploadData }),
+        });
+        
+        if (uploadResponse.ok) {
+          imageUploadResults = await uploadResponse.json();
+          console.log('Images uploaded to Shopify successfully:', imageUploadResults);
+          
+          // Extract Cloudinary public IDs for cleanup
+          const publicIdsToDelete: string[] = [];
+          
+          customizations.forEach(customization => {
+            [customization.originalImageUrl, customization.croppedImageUrl, customization.renderedImageUrl].forEach(url => {
+              const publicId = extractCloudinaryPublicId(url);
+              if (publicId) {
+                publicIdsToDelete.push(publicId);
+              }
+            });
+          });
+          
+          // Clean up Cloudinary images
+          if (publicIdsToDelete.length > 0) {
+            console.log('Cleaning up Cloudinary images...');
+            const cleanupResponse = await fetch(`${req.nextUrl.origin}/api/cleanup-cloudinary`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ publicIds: publicIdsToDelete }),
+            });
+            
+            if (cleanupResponse.ok) {
+              cloudinaryCleanupResults = await cleanupResponse.json();
+              console.log('Cloudinary cleanup completed:', cloudinaryCleanupResults);
+            } else {
+              console.error('Failed to cleanup Cloudinary images:', await cleanupResponse.text());
+            }
+          }
+        } else {
+          console.error('Failed to upload images to Shopify:', await uploadResponse.text());
+        }
+      } catch (error) {
+        console.error('Error processing customization images:', error);
+      }
+    }
+    
     // Return success response
     return NextResponse.json({
       success: true,
@@ -113,6 +189,8 @@ export async function POST(req: NextRequest) {
         financial_status: order.financial_status,
         fulfillment_status: order.fulfillment_status,
       },
+      imageUpload: imageUploadResults,
+      cloudinaryCleanup: cloudinaryCleanupResults,
     });
 
   } catch (error) {
@@ -124,5 +202,23 @@ export async function POST(req: NextRequest) {
       },
       { status: 500 }
     );
+  }
+}
+
+// Helper function to extract Cloudinary public ID from URL
+function extractCloudinaryPublicId(url: string): string {
+  try {
+    const urlParts = url.split('/');
+    const uploadIndex = urlParts.findIndex(part => part === 'upload');
+    if (uploadIndex !== -1 && uploadIndex + 2 < urlParts.length) {
+      // Get the part after version (v1234567890)
+      const pathAfterVersion = urlParts.slice(uploadIndex + 2).join('/');
+      // Remove file extension
+      return pathAfterVersion.replace(/\.[^/.]+$/, '');
+    }
+    return '';
+  } catch (error) {
+    console.error('Error extracting Cloudinary public ID:', error);
+    return '';
   }
 }
