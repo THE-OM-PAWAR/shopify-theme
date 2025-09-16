@@ -6,7 +6,7 @@ import { ShopifyProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useCustomizationStore } from '@/lib/customization-store';
 import ImageCustomizationModal from '@/components/customization/ImageCustomizationModal';
-import { Palette, Eye, Star, Heart } from 'lucide-react';
+import { Star, Heart } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ProductCardProps {
@@ -41,17 +41,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     }
   }, [_hasHydrated, product.id, getCustomization, image?.url]);
 
-  const handleCustomizeClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsCustomizationModalOpen(true);
-  };
-
-  const handleViewProduct = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    window.location.href = `/products/${product.handle}`;
-  };
+  // Clicking the card: if customizable, open customization; otherwise go to product page
 
   const handleLikeClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -61,7 +51,11 @@ export default function ProductCard({ product }: ProductCardProps) {
   };
 
   const handleCardClick = () => {
-    window.location.href = `/products/${product.handle}`;
+    if (canCustomize) {
+      setIsCustomizationModalOpen(true);
+    } else {
+      window.location.href = `/products/${product.handle}`;
+    }
   };
 
   return (
@@ -102,31 +96,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               <Heart className={`h-5 w-5 transition-colors ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
             </button>
             
-            {/* Hover Overlay with Buttons */}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
-              <div className="flex gap-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleViewProduct}
-                  className="bg-white text-gray-900 hover:bg-gray-100 shadow-lg font-medium rounded-full px-6"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
-                </Button>
-                
-                {canCustomize && (
-                  <Button
-                    size="sm"
-                    onClick={handleCustomizeClick}
-                    className="bg-blue-600 text-white hover:bg-blue-700 shadow-lg font-medium rounded-full px-6"
-                  >
-                    <Palette className="h-4 w-4 mr-2" />
-                    Customize
-                  </Button>
-                )}
-              </div>
-            </div>
+            {/* Hover overlay removed to avoid covering card click and buttons */}
           </div>
           
           {/* Product Info */}
@@ -147,30 +117,6 @@ export default function ProductCard({ product }: ProductCardProps) {
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                 In Stock
               </div>
-            </div>
-            
-            {/* Mobile Action Buttons */}
-            <div className="mt-4 flex gap-2 sm:hidden">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleViewProduct}
-                className="flex-1 font-medium rounded-full"
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                View
-              </Button>
-              
-              {canCustomize && (
-                <Button
-                  size="sm"
-                  onClick={handleCustomizeClick}
-                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700 font-medium rounded-full"
-                >
-                  <Palette className="h-4 w-4 mr-2" />
-                  Customize
-                </Button>
-              )}
             </div>
           </div>
         </div>
