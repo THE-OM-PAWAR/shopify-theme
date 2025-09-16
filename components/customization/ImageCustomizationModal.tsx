@@ -9,7 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import { ShopifyProduct } from '@/lib/types';
 import { useCustomizationStore } from '@/lib/customization-store';
 import { uploadToCloudinary } from '@/lib/cloudinary';
-import { Upload, RotateCcw, Save, X } from 'lucide-react';
+import { Upload, RotateCcw, ShoppingCart, X, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ImageCustomizationModalProps {
@@ -366,14 +366,14 @@ export default function ImageCustomizationModal({
 
   const handleSave = async () => {
     if (!uploadedImage || !canvasRef.current || !croppedCanvasRef.current) {
-      toast.error('Please upload an image first');
+      toast.error('Please upload an image to continue');
       return;
     }
 
     setIsUploading(true);
     
     try {
-      console.log('Starting save process...');
+      console.log('Processing your customization...');
       
       // Create canvas for original image
       const originalCanvas = document.createElement('canvas');
@@ -391,7 +391,7 @@ export default function ImageCustomizationModal({
       // Get original image blob
       const originalBlob = await canvasToBlob(originalCanvas);
 
-      console.log('Blobs created, uploading to Cloudinary...');
+      console.log('Saving your custom design...');
       
       // Upload all images to Cloudinary
       const [renderedUrl, croppedUrl, originalUrl] = await Promise.all([
@@ -413,11 +413,16 @@ export default function ImageCustomizationModal({
         createdAt: new Date().toISOString()
       });
 
-      toast.success('Customization saved successfully!');
-      onClose();
+      toast.success('Your custom design is ready!');
+      
+      // Close modal and redirect to product page after a short delay
+      setTimeout(() => {
+        onClose();
+        window.location.href = `/products/${product.handle}`;
+      }, 1000);
     } catch (error) {
       console.error('Save error:', error);
-      toast.error('Failed to save customization: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      toast.error('Failed to save your design. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -425,10 +430,13 @@ export default function ImageCustomizationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto bg-gradient-to-br from-white to-gray-50">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Customize {product.title}</span>
+          <DialogTitle className="flex items-center justify-between text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <div className="flex items-center gap-3">
+              <ImageIcon className="h-6 w-6 text-blue-600" />
+              <span>Design Your {product.title}</span>
+            </div>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
@@ -437,14 +445,14 @@ export default function ImageCustomizationModal({
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Canvas Section */}
-          <div className="space-y-4">
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-              <h4 className="text-sm font-medium mb-2">Preview with Frame</h4>
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+              <h4 className="text-lg font-semibold mb-4 text-gray-800">Live Preview</h4>
               <canvas
                 ref={canvasRef}
                 width={canvasDimensions.width}
                 height={canvasDimensions.height}
-                className="border border-gray-300 rounded bg-white cursor-move mx-auto block"
+                className="border-2 border-gray-200 rounded-lg bg-white cursor-move mx-auto block shadow-md hover:shadow-lg transition-shadow"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -463,24 +471,26 @@ export default function ImageCustomizationModal({
             </div>
 
             {/* Upload Section */}
-            <div className="space-y-2">
-              <Label htmlFor="image-upload">Upload Your Image</Label>
-              <div className="flex gap-2">
+            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+              <Label htmlFor="image-upload" className="text-lg font-semibold text-gray-800 mb-4 block">
+                Upload Your Image
+              </Label>
+              <div className="flex gap-3">
                 <Input
                   id="image-upload"
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
                   onChange={handleFileUpload}
-                  className="flex-1"
+                  className="flex-1 border-2 border-dashed border-gray-300 rounded-lg p-3 hover:border-blue-400 transition-colors"
                 />
                 <Button
-                  variant="outline"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isLoading}
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  {isLoading ? 'Loading...' : 'Browse'}
+                  {isLoading ? 'Loading...' : 'Choose File'}
                 </Button>
               </div>
             </div>
@@ -488,106 +498,121 @@ export default function ImageCustomizationModal({
 
           {/* Controls Section */}
           <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Adjustment Controls</h3>
+            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+              <h3 className="text-xl font-semibold mb-6 text-gray-800">Customize Your Design</h3>
               
               {uploadedImage ? (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   {/* Scale Control */}
                   <div>
-                    <Label>Scale: {imageState.scale.toFixed(2)}</Label>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Size: {Math.round(imageState.scale * 100)}%
+                    </Label>
                     <Slider
                       value={[imageState.scale]}
                       onValueChange={handleScaleChange}
                       min={0.1}
                       max={3}
                       step={0.1}
-                      className="mt-2"
+                      className="mt-3"
                     />
                   </div>
 
                   {/* Rotation Control */}
                   <div>
-                    <Label>Rotation: {imageState.rotation}°</Label>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                      Rotation: {imageState.rotation}°
+                    </Label>
                     <Slider
                       value={[imageState.rotation]}
                       onValueChange={handleRotationChange}
                       min={-180}
                       max={180}
                       step={1}
-                      className="mt-2"
+                      className="mt-3"
                     />
                   </div>
 
                   {/* Position Info */}
-                  <div className="text-sm text-gray-600">
-                    <p>Position: ({Math.round(imageState.x)}, {Math.round(imageState.y)})</p>
-                    <p className="text-xs mt-1">Drag the image on canvas to reposition</p>
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                    <p className="text-sm text-blue-800 font-medium">
+                      💡 Drag the image in the preview to reposition it
+                    </p>
                   </div>
 
                   {/* Reset Button */}
-                  <Button variant="outline" onClick={handleReset} className="w-full">
+                  <Button 
+                    variant="outline" 
+                    onClick={handleReset} 
+                    className="w-full border-2 border-gray-300 hover:border-gray-400 py-3"
+                  >
                     <RotateCcw className="h-4 w-4 mr-2" />
-                    Reset Position
+                    Reset to Center
                   </Button>
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Upload className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>Upload an image to start customizing</p>
-                  <p className="text-sm mt-2">Supported formats: JPG, PNG, GIF</p>
+                <div className="text-center py-12 text-gray-500">
+                  <div className="bg-gray-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                    <Upload className="h-10 w-10 text-gray-400" />
+                  </div>
+                  <p className="text-lg font-medium mb-2">Upload your image to get started</p>
+                  <p className="text-sm">Supported: JPG, PNG, GIF (Max 10MB)</p>
                 </div>
               )}
             </div>
 
             {/* Instructions */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">How to use:</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>1. Upload your image using the browse button</li>
-                <li>2. Drag the image on canvas to position it</li>
-                <li>3. Use sliders to adjust size and rotation</li>
-                <li>4. Your image will show through the frame</li>
-                <li>5. Click save when you're happy with the result</li>
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border border-blue-100">
+              <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-2">?</span>
+                Quick Guide
+              </h4>
+              <ul className="text-sm text-gray-700 space-y-2">
+                <li className="flex items-start">
+                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs mr-3 mt-0.5 flex-shrink-0">1</span>
+                  Choose and upload your favorite image
+                </li>
+                <li className="flex items-start">
+                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs mr-3 mt-0.5 flex-shrink-0">2</span>
+                  Drag to position, use sliders to resize and rotate
+                </li>
+                <li className="flex items-start">
+                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs mr-3 mt-0.5 flex-shrink-0">3</span>
+                  Preview how it looks with the frame
+                </li>
+                <li className="flex items-start">
+                  <span className="bg-blue-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs mr-3 mt-0.5 flex-shrink-0">4</span>
+                  Add to cart when you're happy with the design
+                </li>
               </ul>
-            </div>
-
-            {/* Canvas Info */}
-            <div className="bg-gray-100 p-3 rounded text-xs">
-              <p><strong>Canvas Info:</strong></p>
-              <p>Frame URL: {frameImageUrl}</p>
-              <p>Frame Loaded: {frameImage ? 'Yes' : 'No'}</p>
-              <p>Frame Load Error: {frameImageLoadError ? 'Yes' : 'No'}</p>
-              <p>User Image: {uploadedImage ? 'Loaded' : 'None'}</p>
-              <p>Canvas Size: {canvasDimensions.width}x{canvasDimensions.height}</p>
-              {frameImage && (
-                <p>Frame Aspect Ratio: {(frameImage.width / frameImage.height).toFixed(2)}</p>
-              )}
             </div>
 
             {/* Frame Load Error Warning */}
             {frameImageLoadError && (
-              <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
-                <h4 className="font-medium text-red-900 mb-1">Frame Image Error</h4>
-                <p className="text-sm text-red-800">
-                  The custom frame image failed to load. Using a fallback frame instead.
-                  This might be due to CORS restrictions or an invalid image URL.
+              <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-lg">
+                <h4 className="font-medium text-red-800 mb-2">⚠️ Frame Loading Issue</h4>
+                <p className="text-sm text-red-700">
+                  We're using a backup frame design. Your customization will still work perfectly!
                 </p>
               </div>
             )}
 
             {/* Action Buttons */}
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose} className="flex-1">
+            <div className="flex gap-4 pt-4">
+              <Button 
+                variant="outline" 
+                onClick={onClose} 
+                className="flex-1 py-3 border-2 border-gray-300 hover:border-gray-400"
+              >
                 Cancel
               </Button>
               <Button 
-                onClick={handleSave} 
+                onClick={handleSave}
                 disabled={!uploadedImage || isUploading}
-                className="flex-1"
+                className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold shadow-lg hover:shadow-xl transition-all"
               >
-                <Save className="h-4 w-4 mr-2" />
-                {isUploading ? 'Saving...' : 'Save Customization'}
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                {isUploading ? 'Processing...' : 'Add to Cart'}
               </Button>
             </div>
           </div>
