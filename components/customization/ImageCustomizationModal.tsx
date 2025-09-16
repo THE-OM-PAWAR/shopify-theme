@@ -11,6 +11,7 @@ import { useCustomizationStore } from '@/lib/customization-store';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import { Upload, RotateCcw, Save, X, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 
 interface ImageCustomizationModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export default function ImageCustomizationModal({
   product,
   frameImageUrl
 }: ImageCustomizationModalProps) {
+  const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const croppedCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -365,6 +367,7 @@ export default function ImageCustomizationModal({
       });
 
       toast.success('Customization saved successfully!');
+      router.push(`/products/${product.handle}`);
       onClose();
     } catch (error) {
       console.error('Save error:', error);
