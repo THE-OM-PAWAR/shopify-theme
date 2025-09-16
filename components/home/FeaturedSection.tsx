@@ -1,0 +1,71 @@
+'use client';
+
+import { ShopifyCollection } from '@/lib/types';
+import ProductGrid from '@/components/product/ProductGrid';
+import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
+import Link from 'next/link';
+
+interface FeaturedSectionProps {
+  collections: ShopifyCollection[];
+}
+
+export default function FeaturedSection({ collections }: FeaturedSectionProps) {
+  return (
+    <section className="py-24 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Section Header */}
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            Featured Collections
+          </h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Discover our carefully curated collections, each designed to bring you the finest products
+          </p>
+        </div>
+
+        {/* Collections */}
+        <div className="space-y-24">
+          {collections.map((collection, index) => {
+            const products = collection.products.edges.map(edge => edge.node);
+            
+            return (
+              <div key={collection.id} className="space-y-12">
+                {/* Collection Header */}
+                <div className="text-center">
+                  <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
+                    {collection.title}
+                  </h3>
+                  {collection.description && (
+                    <p className="text-gray-600 mb-6 max-w-3xl mx-auto">
+                      {collection.description}
+                    </p>
+                  )}
+                  <Button asChild variant="outline" className="rounded-full">
+                    <Link href={`/collections/${collection.handle}`} className="inline-flex items-center">
+                      View All {collection.title}
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+                
+                {/* Products Grid */}
+                <ProductGrid products={products.slice(0, 4)} />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* View All Collections CTA */}
+        <div className="text-center mt-20">
+          <Button asChild size="lg" className="rounded-full px-8">
+            <Link href="/collections" className="inline-flex items-center">
+              Explore All Collections
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
