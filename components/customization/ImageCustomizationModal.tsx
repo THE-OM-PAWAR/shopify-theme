@@ -379,8 +379,8 @@ export default function ImageCustomizationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
-        <div className="flex flex-col h-full">
+      <DialogContent className="sm:max-w-4xl w-[95vw] h-[90vh] overflow-auto lg:overflow-hidden p-0">
+        <div className="flex flex-col h-full min-h-0">
           {/* Header */}
           <DialogHeader className="px-6 py-4 border-b border-gray-100">
             <div className="flex items-center justify-between">
@@ -397,16 +397,16 @@ export default function ImageCustomizationModal({
           </DialogHeader>
 
           {/* Content */}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-auto lg:overflow-hidden flex-col lg:flex-row min-h-0">
             {/* Canvas Section */}
-            <div className="flex-1 p-6 bg-gray-50 flex items-center justify-center">
+            <div className="flex-1 p-4 sm:p-6 bg-gray-50 flex items-center justify-center">
               <div className="space-y-4">
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                   <canvas
                     ref={canvasRef}
                     width={canvasDimensions.width}
                     height={canvasDimensions.height}
-                    className="border border-gray-200 rounded-lg cursor-move mx-auto block"
+                    className="border border-gray-200 rounded-lg cursor-move mx-auto block max-w-full h-auto"
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
@@ -448,7 +448,7 @@ export default function ImageCustomizationModal({
             </div>
 
             {/* Controls Section */}
-            <div className="w-80 border-l border-gray-100 bg-white">
+            <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-gray-100 bg-white">
               <div className="p-6 space-y-6">
                 {uploadedImage ? (
                   <>
@@ -527,7 +527,7 @@ export default function ImageCustomizationModal({
               </div>
 
               {/* Action Buttons */}
-              <div className="border-t border-gray-100 p-6">
+              <div className="border-t border-gray-100 p-4 sm:p-6">
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={onClose} className="flex-1" size="sm">
                     Cancel
