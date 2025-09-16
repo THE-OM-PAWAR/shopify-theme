@@ -9,7 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import { ShopifyProduct } from '@/lib/types';
 import { useCustomizationStore } from '@/lib/customization-store';
 import { uploadToCloudinary } from '@/lib/cloudinary';
-import { Upload, RotateCcw, Save, X } from 'lucide-react';
+import { Upload, RotateCcw, Save, X, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ImageCustomizationModalProps {
@@ -43,12 +43,12 @@ export default function ImageCustomizationModal({
   const [uploadedImage, setUploadedImage] = useState<HTMLImageElement | null>(null);
   const [frameImage, setFrameImage] = useState<HTMLImageElement | null>(null);
   const [canvasDimensions, setCanvasDimensions] = useState<CanvasDimensions>({
-    width: 400,
-    height: 600
+    width: 300,
+    height: 400
   });
   const [imageState, setImageState] = useState<ImageState>({
-    x: 200,
-    y: 300,
+    x: 150,
+    y: 200,
     scale: 1,
     rotation: 0
   });
@@ -60,46 +60,36 @@ export default function ImageCustomizationModal({
   
   const { saveCustomization } = useCustomizationStore();
 
-  console.log('ImageCustomizationModal - Opening with frame URL:', frameImageUrl);
-
   // Load frame image and calculate canvas dimensions
   useEffect(() => {
     setFrameImageLoadError(false);
     
     if (frameImageUrl && frameImageUrl.trim() !== '' && (frameImageUrl.startsWith('http://') || frameImageUrl.startsWith('https://'))) {
-      console.log('Loading frame image:', frameImageUrl);
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
-        console.log('Frame image loaded successfully, dimensions:', img.width, 'x', img.height);
         setFrameImage(img);
         setFrameImageLoadError(false);
         
-        // Calculate canvas dimensions based on frame image aspect ratio
+        // Smaller canvas dimensions for compact modal
         const frameAspectRatio = img.width / img.height;
-        const maxWidth = 500; // Maximum canvas width
-        const maxHeight = 700; // Maximum canvas height
+        const maxWidth = 300;
+        const maxHeight = 400;
         
         let canvasWidth: number, canvasHeight: number;
         
         if (frameAspectRatio > 1) {
-          // Landscape frame
           canvasWidth = Math.min(maxWidth, img.width);
           canvasHeight = canvasWidth / frameAspectRatio;
         } else {
-          // Portrait frame
           canvasHeight = Math.min(maxHeight, img.height);
           canvasWidth = canvasHeight * frameAspectRatio;
         }
         
-        // Ensure minimum dimensions
-        canvasWidth = Math.max(300, canvasWidth);
-        canvasHeight = Math.max(400, canvasHeight);
+        canvasWidth = Math.max(250, canvasWidth);
+        canvasHeight = Math.max(300, canvasHeight);
         
-        console.log('Calculated canvas dimensions:', canvasWidth, 'x', canvasHeight);
         setCanvasDimensions({ width: canvasWidth, height: canvasHeight });
-        
-        // Update initial image position to center
         setImageState(prev => ({
           ...prev,
           x: canvasWidth / 2,
@@ -109,41 +99,36 @@ export default function ImageCustomizationModal({
       img.onerror = (error) => {
         console.error('Failed to load frame image:', frameImageUrl, error);
         setFrameImageLoadError(true);
-        toast.error('Failed to load custom frame image. Please check the image URL or contact support.');
+        toast.error('Failed to load frame image');
         
-        // Create a placeholder frame with default dimensions
         const placeholderImg = new Image();
         placeholderImg.onload = () => {
           setFrameImage(placeholderImg);
-          setCanvasDimensions({ width: 400, height: 600 });
-          setImageState(prev => ({ ...prev, x: 200, y: 300 }));
+          setCanvasDimensions({ width: 300, height: 400 });
+          setImageState(prev => ({ ...prev, x: 150, y: 200 }));
         };
         placeholderImg.src = 'data:image/svg+xml;base64,' + btoa(`
-          <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
-            <rect width="400" height="600" fill="rgba(255,255,255,0.9)" stroke="#ff6b6b" stroke-width="2"/>
-            <rect x="50" y="100" width="300" height="400" fill="none" stroke="#999" stroke-width="1" stroke-dasharray="5,5"/>
-            <text x="200" y="300" text-anchor="middle" fill="#ff6b6b" font-family="Arial" font-size="14">Frame Load Error</text>
-            <text x="200" y="320" text-anchor="middle" fill="#666" font-family="Arial" font-size="12">Using fallback frame</text>
-            <text x="200" y="340" text-anchor="middle" fill="#666" font-family="Arial" font-size="12">Your Image Here</text>
+          <svg width="300" height="400" xmlns="http://www.w3.org/2000/svg">
+            <rect width="300" height="400" fill="rgba(248,250,252,0.9)" stroke="#e2e8f0" stroke-width="2"/>
+            <rect x="40" y="80" width="220" height="240" fill="none" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5,5"/>
+            <text x="150" y="200" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="14">Your Image Here</text>
           </svg>
         `);
       };
       img.src = frameImageUrl;
     } else {
-      // Create a default placeholder frame
-      console.log('Creating placeholder frame');
       setFrameImageLoadError(false);
       const placeholderImg = new Image();
       placeholderImg.onload = () => {
         setFrameImage(placeholderImg);
-        setCanvasDimensions({ width: 400, height: 600 });
-        setImageState(prev => ({ ...prev, x: 200, y: 300 }));
+        setCanvasDimensions({ width: 300, height: 400 });
+        setImageState(prev => ({ ...prev, x: 150, y: 200 }));
       };
       placeholderImg.src = 'data:image/svg+xml;base64,' + btoa(`
-        <svg width="400" height="600" xmlns="http://www.w3.org/2000/svg">
-          <rect width="400" height="600" fill="rgba(255,255,255,0.8)" stroke="#ccc" stroke-width="2"/>
-          <rect x="50" y="100" width="300" height="400" fill="transparent" stroke="#999" stroke-width="2"/>
-          <text x="200" y="320" text-anchor="middle" fill="#666" font-family="Arial" font-size="16">Your Image Here</text>
+        <svg width="300" height="400" xmlns="http://www.w3.org/2000/svg">
+          <rect width="300" height="400" fill="rgba(248,250,252,0.8)" stroke="#e2e8f0" stroke-width="2"/>
+          <rect x="40" y="80" width="220" height="240" fill="transparent" stroke="#cbd5e1" stroke-width="2"/>
+          <text x="150" y="210" text-anchor="middle" fill="#64748b" font-family="system-ui" font-size="14">Your Image Here</text>
         </svg>
       `);
     }
@@ -162,37 +147,30 @@ export default function ImageCustomizationModal({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas dimensions
     canvas.width = canvasDimensions.width;
     canvas.height = canvasDimensions.height;
 
-    // Clear canvas with white background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvasDimensions.width, canvasDimensions.height);
 
-    // Draw uploaded image if available (behind frame)
     if (uploadedImage) {
       ctx.save();
-      
-      // Apply transformations
       ctx.translate(imageState.x, imageState.y);
       ctx.rotate((imageState.rotation * Math.PI) / 180);
       ctx.scale(imageState.scale, imageState.scale);
       
-      // Calculate image dimensions to fit canvas while maintaining aspect ratio
       const imgAspect = uploadedImage.width / uploadedImage.height;
       const canvasAspect = canvasDimensions.width / canvasDimensions.height;
       
       let drawWidth, drawHeight;
       if (imgAspect > canvasAspect) {
-        drawWidth = canvasDimensions.width * 0.8; // Make it smaller so it fits nicely
+        drawWidth = canvasDimensions.width * 0.8;
         drawHeight = drawWidth / imgAspect;
       } else {
         drawHeight = canvasDimensions.height * 0.8;
         drawWidth = drawHeight * imgAspect;
       }
       
-      // Draw image centered
       ctx.drawImage(
         uploadedImage,
         -drawWidth / 2,
@@ -204,7 +182,6 @@ export default function ImageCustomizationModal({
       ctx.restore();
     }
 
-    // Draw frame image on top
     if (frameImage) {
       ctx.drawImage(frameImage, 0, 0, canvasDimensions.width, canvasDimensions.height);
     }
@@ -217,22 +194,16 @@ export default function ImageCustomizationModal({
     const ctx = croppedCanvas.getContext('2d');
     if (!ctx) return;
 
-    // Set cropped canvas dimensions to match main canvas
     croppedCanvas.width = canvasDimensions.width;
     croppedCanvas.height = canvasDimensions.height;
 
-    // Clear canvas with transparent background
     ctx.clearRect(0, 0, canvasDimensions.width, canvasDimensions.height);
 
-    // Draw only the uploaded image without the frame
     ctx.save();
-    
-    // Apply transformations
     ctx.translate(imageState.x, imageState.y);
     ctx.rotate((imageState.rotation * Math.PI) / 180);
     ctx.scale(imageState.scale, imageState.scale);
     
-    // Calculate image dimensions to fit canvas while maintaining aspect ratio
     const imgAspect = uploadedImage.width / uploadedImage.height;
     const canvasAspect = canvasDimensions.width / canvasDimensions.height;
     
@@ -245,7 +216,6 @@ export default function ImageCustomizationModal({
       drawWidth = drawHeight * imgAspect;
     }
     
-    // Draw image centered
     ctx.drawImage(
       uploadedImage,
       -drawWidth / 2,
@@ -261,16 +231,13 @@ export default function ImageCustomizationModal({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    console.log('File selected:', file.name, file.type, file.size);
     setIsLoading(true);
 
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        console.log('User image loaded, dimensions:', img.width, 'x', img.height);
         setUploadedImage(img);
-        // Reset image position to center
         setImageState({
           x: canvasDimensions.width / 2,
           y: canvasDimensions.height / 2,
@@ -281,14 +248,12 @@ export default function ImageCustomizationModal({
         toast.success('Image uploaded successfully!');
       };
       img.onerror = () => {
-        console.error('Failed to load uploaded image');
         setIsLoading(false);
         toast.error('Failed to load image');
       };
       img.src = e.target?.result as string;
     };
     reader.onerror = () => {
-      console.error('Failed to read file');
       setIsLoading(false);
       toast.error('Failed to read file');
     };
@@ -307,7 +272,6 @@ export default function ImageCustomizationModal({
 
     setIsDragging(true);
     setDragStart({ x: x - imageState.x, y: y - imageState.y });
-    console.log('Started dragging at:', x, y);
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -329,7 +293,6 @@ export default function ImageCustomizationModal({
 
   const handleMouseUp = () => {
     if (isDragging) {
-      console.log('Stopped dragging');
       setIsDragging(false);
     }
   };
@@ -373,9 +336,6 @@ export default function ImageCustomizationModal({
     setIsUploading(true);
     
     try {
-      console.log('Starting save process...');
-      
-      // Create canvas for original image
       const originalCanvas = document.createElement('canvas');
       originalCanvas.width = uploadedImage.width;
       originalCanvas.height = uploadedImage.height;
@@ -384,32 +344,23 @@ export default function ImageCustomizationModal({
         originalCtx.drawImage(uploadedImage, 0, 0);
       }
 
-      // Get rendered canvas blob (with frame)
       const renderedBlob = await canvasToBlob(canvasRef.current);
-      // Get cropped canvas blob (without frame)
       const croppedBlob = await canvasToBlob(croppedCanvasRef.current);
-      // Get original image blob
       const originalBlob = await canvasToBlob(originalCanvas);
 
-      console.log('Blobs created, uploading to Cloudinary...');
-      
-      // Upload all images to Cloudinary
       const [renderedUrl, croppedUrl, originalUrl] = await Promise.all([
         uploadToCloudinary(renderedBlob, `${product.handle}-rendered-${Date.now()}`),
         uploadToCloudinary(croppedBlob, `${product.handle}-cropped-${Date.now()}`),
         uploadToCloudinary(originalBlob, `${product.handle}-original-${Date.now()}`)
       ]);
 
-      console.log('Images uploaded:', { renderedUrl, croppedUrl, originalUrl });
-
-      // Save customization data
       saveCustomization(product.id, {
         originalImageUrl: originalUrl,
         renderedImageUrl: renderedUrl,
-        croppedImageUrl: croppedUrl, // New field for cropped image
+        croppedImageUrl: croppedUrl,
         frameImageUrl,
         imageState,
-        canvasDimensions, // Save canvas dimensions for reference
+        canvasDimensions,
         createdAt: new Date().toISOString()
       });
 
@@ -425,146 +376,170 @@ export default function ImageCustomizationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Customize {product.title}</span>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Canvas Section */}
-          <div className="space-y-4">
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
-              <h4 className="text-sm font-medium mb-2">Preview with Frame</h4>
-              <canvas
-                ref={canvasRef}
-                width={canvasDimensions.width}
-                height={canvasDimensions.height}
-                className="border border-gray-300 rounded bg-white cursor-move mx-auto block"
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                style={{ maxWidth: '100%', height: 'auto' }}
-              />
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden p-0">
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <DialogHeader className="px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-xl font-semibold text-gray-900">
+                  Customize {product.title}
+                </DialogTitle>
+                <p className="text-sm text-gray-500 mt-1">Upload and position your image</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+                <X className="h-4 w-4" />
+              </Button>
             </div>
+          </DialogHeader>
 
-            {/* Hidden cropped canvas for processing */}
-            <div className="hidden">
+          {/* Content */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Canvas Section */}
+            <div className="flex-1 p-6 bg-gray-50 flex items-center justify-center">
+              <div className="space-y-4">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                  <canvas
+                    ref={canvasRef}
+                    width={canvasDimensions.width}
+                    height={canvasDimensions.height}
+                    className="border border-gray-200 rounded-lg cursor-move mx-auto block"
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMove}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
+                    style={{ maxWidth: '100%', height: 'auto' }}
+                  />
+                </div>
+
+                {/* Upload Section */}
+                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                  <div className="flex items-center gap-3">
+                    <Input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="flex-1 text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isLoading}
+                      size="sm"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {isLoading ? 'Loading...' : 'Browse'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hidden cropped canvas */}
               <canvas
                 ref={croppedCanvasRef}
                 width={canvasDimensions.width}
                 height={canvasDimensions.height}
+                className="hidden"
               />
             </div>
 
-            {/* Upload Section */}
-            <div className="space-y-2">
-              <Label htmlFor="image-upload">Upload Your Image</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="image-upload"
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isLoading}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {isLoading ? 'Loading...' : 'Browse'}
-                </Button>
+            {/* Controls Section */}
+            <div className="w-80 border-l border-gray-100 bg-white">
+              <div className="p-6 space-y-6">
+                {uploadedImage ? (
+                  <>
+                    {/* Scale Control */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-gray-700">Scale</Label>
+                        <span className="text-sm text-gray-500">{imageState.scale.toFixed(2)}</span>
+                      </div>
+                      <Slider
+                        value={[imageState.scale]}
+                        onValueChange={handleScaleChange}
+                        min={0.1}
+                        max={3}
+                        step={0.1}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Rotation Control */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-gray-700">Rotation</Label>
+                        <span className="text-sm text-gray-500">{imageState.rotation}°</span>
+                      </div>
+                      <Slider
+                        value={[imageState.rotation]}
+                        onValueChange={handleRotationChange}
+                        min={-180}
+                        max={180}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Position Info */}
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 mb-1">
+                        Position: ({Math.round(imageState.x)}, {Math.round(imageState.y)})
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Drag the image on canvas to reposition
+                      </p>
+                    </div>
+
+                    {/* Reset Button */}
+                    <Button variant="outline" onClick={handleReset} className="w-full" size="sm">
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Reset Position
+                    </Button>
+                  </>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <ImageIcon className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="font-medium text-gray-900 mb-2">Upload Your Image</h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Choose an image to customize your product
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Supported: JPG, PNG, GIF
+                    </p>
+                  </div>
+                )}
+
+                {/* Frame Load Error Warning */}
+                {frameImageLoadError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <h4 className="text-sm font-medium text-red-900 mb-1">Frame Error</h4>
+                    <p className="text-xs text-red-700">
+                      Using fallback frame due to loading error.
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
 
-          {/* Controls Section */}
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-4">Adjustment Controls</h3>
-              
-              {uploadedImage ? (
-                <div className="space-y-4">
-                  {/* Scale Control */}
-                  <div>
-                    <Label>Scale: {imageState.scale.toFixed(2)}</Label>
-                    <Slider
-                      value={[imageState.scale]}
-                      onValueChange={handleScaleChange}
-                      min={0.1}
-                      max={3}
-                      step={0.1}
-                      className="mt-2"
-                    />
-                  </div>
-
-                  {/* Rotation Control */}
-                  <div>
-                    <Label>Rotation: {imageState.rotation}°</Label>
-                    <Slider
-                      value={[imageState.rotation]}
-                      onValueChange={handleRotationChange}
-                      min={-180}
-                      max={180}
-                      step={1}
-                      className="mt-2"
-                    />
-                  </div>
-
-                  {/* Position Info */}
-                  <div className="text-sm text-gray-600">
-                    <p>Position: ({Math.round(imageState.x)}, {Math.round(imageState.y)})</p>
-                    <p className="text-xs mt-1">Drag the image on canvas to reposition</p>
-                  </div>
-
-                  {/* Reset Button */}
-                  <Button variant="outline" onClick={handleReset} className="w-full">
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Reset Position
+              {/* Action Buttons */}
+              <div className="border-t border-gray-100 p-6">
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={onClose} className="flex-1" size="sm">
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={!uploadedImage || isUploading}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isUploading ? 'Saving...' : 'Save'}
                   </Button>
                 </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Upload className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>Upload an image to start customizing</p>
-                  <p className="text-sm mt-2">Supported formats: JPG, PNG, GIF</p>
-                </div>
-              )}
-            </div>
-
-
-            {/* Frame Load Error Warning */}
-            {frameImageLoadError && (
-              <div className="bg-red-50 border border-red-200 p-3 rounded-lg">
-                <h4 className="font-medium text-red-900 mb-1">Frame Image Error</h4>
-                <p className="text-sm text-red-800">
-                  The custom frame image failed to load. Using a fallback frame instead.
-                  This might be due to CORS restrictions or an invalid image URL.
-                </p>
               </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={onClose} className="flex-1">
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSave} 
-                disabled={!uploadedImage || isUploading}
-                className="flex-1"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {isUploading ? 'Saving...' : 'Save Customization'}
-              </Button>
             </div>
           </div>
         </div>

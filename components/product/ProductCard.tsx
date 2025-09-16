@@ -6,7 +6,7 @@ import { ShopifyProduct } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useCustomizationStore } from '@/lib/customization-store';
 import ImageCustomizationModal from '@/components/customization/ImageCustomizationModal';
-import { Palette, Eye } from 'lucide-react';
+import { Palette, Eye, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ProductCardProps {
@@ -21,23 +21,16 @@ export default function ProductCard({ product }: ProductCardProps) {
   const image = product.images.edges[0]?.node;
   const price = product.priceRange.minVariantPrice;
   
-  console.log('ProductCard - Product:', product.title);
-  console.log('ProductCard - Product metafields:', product.metafields);
-  
   // Check if product has frame image metafield
   const frameImageMetafield = product.metafields?.find(
     (metafield) => metafield && metafield.namespace === 'custom' && metafield.key === 'frame_image'
   );
   
-  console.log('ProductCard - Frame image metafield:', frameImageMetafield);
-  
   // Get frame image URL from reference field (for file metafields) or fallback to value
   const frameImageUrl = frameImageMetafield?.reference?.image?.url || frameImageMetafield?.value;
-  console.log('ProductCard - Frame image URL:', frameImageUrl);
   
   // Allow customization if frame image URL exists
   const canCustomize = !!frameImageUrl;
-  console.log('ProductCard - Can customize:', canCustomize);
   
   // Check if user has customized this product
   useEffect(() => {
@@ -50,12 +43,6 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleCustomizeClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    console.log('Customize button clicked for product:', product.title);
-    console.log('Frame image URL:', frameImageUrl);
-    console.log('Can customize:', canCustomize);
-    
-    console.log('Opening customization modal...');
     setIsCustomizationModalOpen(true);
   };
 
@@ -76,39 +63,40 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <>
       <div className="group relative cursor-pointer" onClick={handleCardClick}>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200">
-          <div className="aspect-square relative overflow-hidden bg-gray-100">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl hover:border-gray-200 transition-all duration-300 transform hover:-translate-y-1">
+          <div className="aspect-square relative overflow-hidden bg-gray-50">
             {currentDisplayImage ? (
               <Image
                 src={currentDisplayImage}
                 alt={image?.altText || product.title}
                 fill
-                className="object-contain group-hover:scale-105 transition-transform duration-200"
+                className="object-contain group-hover:scale-105 transition-transform duration-500"
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
             ) : (
-              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                <span className="text-gray-400">No image</span>
+              <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                <span className="text-gray-400 text-lg">No image</span>
               </div>
             )}
             
             {/* Customization Badge */}
             {_hasHydrated && getCustomization(product.id) && (
-              <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+              <div className="absolute top-3 left-3 bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-medium shadow-lg">
+                <Star className="h-3 w-3 inline mr-1" />
                 Custom
               </div>
             )}
             
             {/* Hover Overlay with Buttons */}
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
-              <div className="flex gap-2">
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <div className="flex gap-3 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                 <Button
                   size="sm"
                   variant="secondary"
                   onClick={handleViewProduct}
-                  className="bg-white text-black hover:bg-gray-100"
+                  className="bg-white text-gray-900 hover:bg-gray-100 shadow-lg font-medium"
                 >
-                  <Eye className="h-4 w-4 mr-1" />
+                  <Eye className="h-4 w-4 mr-2" />
                   View
                 </Button>
                 
@@ -116,9 +104,9 @@ export default function ProductCard({ product }: ProductCardProps) {
                   <Button
                     size="sm"
                     onClick={handleCustomizeClick}
-                    className="bg-blue-600 text-white hover:bg-blue-700"
+                    className="bg-blue-600 text-white hover:bg-blue-700 shadow-lg font-medium"
                   >
-                    <Palette className="h-4 w-4 mr-1" />
+                    <Palette className="h-4 w-4 mr-2" />
                     Customize
                   </Button>
                 )}
@@ -126,11 +114,11 @@ export default function ProductCard({ product }: ProductCardProps) {
             </div>
           </div>
           
-          <div className="p-4">
-            <h3 className="font-medium text-gray-900 mb-2 line-clamp-2">
+          <div className="p-6">
+            <h3 className="font-semibold text-gray-900 mb-3 line-clamp-2 text-lg leading-tight">
               {product.title}
             </h3>
-            <p className="text-lg font-semibold text-gray-900">
+            <p className="text-xl font-bold text-gray-900">
               {new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: price.currencyCode,
@@ -138,14 +126,14 @@ export default function ProductCard({ product }: ProductCardProps) {
             </p>
             
             {/* Action Buttons for Mobile */}
-            <div className="mt-3 flex gap-2 sm:hidden">
+            <div className="mt-4 flex gap-2 sm:hidden">
               <Button
                 size="sm"
                 variant="outline"
                 onClick={handleViewProduct}
-                className="flex-1"
+                className="flex-1 font-medium"
               >
-                <Eye className="h-4 w-4 mr-1" />
+                <Eye className="h-4 w-4 mr-2" />
                 View
               </Button>
               
@@ -153,9 +141,9 @@ export default function ProductCard({ product }: ProductCardProps) {
                 <Button
                   size="sm"
                   onClick={handleCustomizeClick}
-                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                  className="flex-1 bg-blue-600 text-white hover:bg-blue-700 font-medium"
                 >
-                  <Palette className="h-4 w-4 mr-1" />
+                  <Palette className="h-4 w-4 mr-2" />
                   Customize
                 </Button>
               )}

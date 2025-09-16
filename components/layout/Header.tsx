@@ -18,23 +18,23 @@ export default function Header() {
   ];
 
   return (
-    <header className="bg-white shadow-sm sticky top-0 z-50">
+    <header className="bg-white/95 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-20">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link href="/" className="text-2xl font-bold text-gray-900 hover:text-gray-700 transition-colors">
+            <Link href="/" className="text-2xl font-bold text-gray-900 hover:text-gray-700 transition-colors tracking-tight">
               Storefront
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex space-x-8">
+          <nav className="hidden md:flex space-x-1">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className="text-gray-700 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
+                className="text-gray-700 hover:text-gray-900 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
               >
                 {item.name}
               </Link>
@@ -42,8 +42,8 @@ export default function Header() {
           </nav>
 
           {/* Actions */}
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" className="hidden sm:flex">
+          <div className="flex items-center space-x-2">
+            <Button variant="ghost" size="sm" className="hidden sm:flex hover:bg-gray-50 rounded-lg">
               <Search className="h-5 w-5" />
             </Button>
             
@@ -51,11 +51,11 @@ export default function Header() {
               variant="ghost"
               size="sm"
               onClick={openCart}
-              className="relative"
+              className="relative hover:bg-gray-50 rounded-lg"
             >
               <ShoppingBag className="h-5 w-5" />
               {_hasHydrated && totalQuantity > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center min-w-[20px]">
+                <span className="absolute -top-1 -right-1 bg-gray-900 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center min-w-[20px] font-medium">
                   {totalQuantity}
                 </span>
               )}
@@ -65,7 +65,7 @@ export default function Header() {
             <Button
               variant="ghost"
               size="sm"
-              className="md:hidden"
+              className="md:hidden hover:bg-gray-50 rounded-lg"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -76,13 +76,13 @@ export default function Header() {
 
       {/* Mobile Navigation */}
       {isMenuOpen && (
-        <div className="md:hidden bg-white border-t">
-          <div className="px-2 pt-2 pb-3 space-y-1">
+        <div className="md:hidden bg-white border-t border-gray-100">
+          <div className="px-4 pt-2 pb-3 space-y-1">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+                className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 {item.name}
