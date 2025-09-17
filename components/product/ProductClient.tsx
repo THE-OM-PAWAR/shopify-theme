@@ -252,7 +252,7 @@ export default function ProductClient({ product }: ProductClientProps) {
                   <p
                     className={`text-gray-600 clamp-3-lines${expanded ? ' expanded' : ''}`}
                   >
-                    {product.description}
+                    {product.description}  
                   </p>
                   {product.description && (
                     <button
