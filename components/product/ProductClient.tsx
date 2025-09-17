@@ -132,7 +132,7 @@ export default function ProductClient({ product }: ProductClientProps) {
       quantity,
       productTitle: product.title,
       variantTitle: selectedVariant.title
-    });
+    });  
 
     setIsAddingToCart(true);
     try {
