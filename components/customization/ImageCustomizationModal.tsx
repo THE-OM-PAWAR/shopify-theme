@@ -332,6 +332,14 @@ export default function ImageCustomizationModal({
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
+  const getTouchPos = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const t = e.touches[0] || e.changedTouches[0];
+    return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  };
+
   const getHandleUnderMouse = (mouseX: number, mouseY: number): null | 'nw' | 'ne' | 'se' | 'sw' | 'rotate' => {
     if (!uploadedImage) return null;
     const handleHitSize = 12;
@@ -458,6 +466,76 @@ export default function ImageCustomizationModal({
     if (canvas) canvas.style.cursor = uploadedImage ? 'move' : 'pointer';
   };
 
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!uploadedImage) {
+      if (!isLoading) fileInputRef.current?.click();
+      return;
+    }
+    const { x, y } = getTouchPos(e);
+    const handle = getHandleUnderMouse(x, y);
+    if (handle) {
+      if (handle === 'rotate') {
+        const angle = Math.atan2(y - imageState.y, x - imageState.x);
+        setIsRotating(true);
+        setRotateStart({ startAngle: angle, startRotation: imageState.rotation });
+      } else {
+        const { width, height } = getCurrentDrawSize();
+        const angle = (imageState.rotation * Math.PI) / 180;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const halfW = width / 2;
+        const halfH = height / 2;
+        let ox = 0, oy = 0;
+        if (handle === 'nw') { ox = -halfW; oy = -halfH; }
+        if (handle === 'ne') { ox =  halfW; oy = -halfH; }
+        if (handle === 'se') { ox =  halfW; oy =  halfH; }
+        if (handle === 'sw') { ox = -halfW; oy =  halfH; }
+        const hx = imageState.x + (ox * cos - oy * sin);
+        const hy = imageState.y + (ox * sin + oy * cos);
+        const dirX = hx - imageState.x;
+        const dirY = hy - imageState.y;
+        const len = Math.hypot(dirX, dirY) || 1;
+        const ndx = dirX / len;
+        const ndy = dirY / len;
+        const initialAlong = (x - imageState.x) * ndx + (y - imageState.y) * ndy;
+        setIsResizing(handle);
+        setResizeStart({ mouseX: x, mouseY: y, baseWidth: width, baseHeight: height, startScale: imageState.scale, dirX: ndx, dirY: ndy, initialAlong });
+      }
+    } else {
+      setIsDragging(true);
+      setDragStart({ x: x - imageState.x, y: y - imageState.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!uploadedImage) return;
+    e.preventDefault();
+    const { x, y } = getTouchPos(e);
+    if (isRotating) {
+      const currentAngle = Math.atan2(y - imageState.y, x - imageState.x);
+      const delta = currentAngle - rotateStart.startAngle;
+      const degrees = (delta * 180) / Math.PI;
+      setImageState(prev => ({ ...prev, rotation: rotateStart.startRotation + degrees }));
+      return;
+    }
+    if (isResizing) {
+      const along = (x - imageState.x) * resizeStart.dirX + (y - imageState.y) * resizeStart.dirY;
+      const deltaAlong = along - resizeStart.initialAlong;
+      const base = Math.max(resizeStart.baseWidth, resizeStart.baseHeight);
+      const newScale = Math.max(0.1, resizeStart.startScale * (1 + deltaAlong / base));
+      setImageState(prev => ({ ...prev, scale: newScale }));
+      return;
+    }
+    if (isDragging) {
+      setImageState(prev => ({ ...prev, x: x - dragStart.x, y: y - dragStart.y }));
+      return;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    handleMouseUp();
+  };
+
   const handleScaleChange = (value: number[]) => {
     setImageState(prev => ({ ...prev, scale: value[0] }));
   };
@@ -570,12 +648,15 @@ export default function ImageCustomizationModal({
                     ref={canvasRef}
                     width={canvasDimensions.width}
                     height={canvasDimensions.height}
-                    className="border border-gray-200 rounded-lg mx-auto block max-w-full h-auto"
+                    className="border border-gray-200 rounded-lg mx-auto block max-w-full h-auto touch-none"
                     onClick={() => { if (!uploadedImage && !isLoading) fileInputRef.current?.click(); }}
                     onMouseDown={handleMouseDown}
                     onMouseMove={handleMouseMove}
                     onMouseUp={handleMouseUp}
                     onMouseLeave={handleMouseUp}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
                     style={{ maxWidth: '100%', height: 'auto', cursor: uploadedImage ? 'move' : 'pointer' }}
                   />
                   {!uploadedImage && (
