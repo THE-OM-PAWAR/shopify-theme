@@ -1,14 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { ShoppingBag, Search, Menu, X } from 'lucide-react';
+import { ShoppingBag, Search, Menu, X, User } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '@/lib/store';
+import { useCustomerStore } from '@/lib/customer-store';
 import { Button } from '@/components/ui/button';
+import CustomerLoginModal from '@/components/auth/CustomerLoginModal';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const { totalQuantity, openCart, _hasHydrated } = useCartStore();
+  const { customer, isAuthenticated, clearCustomer, _hasHydrated: customerHydrated } = useCustomerStore();
 
   const navigation = [
     { name: 'Home', href: '/' },
@@ -47,6 +51,38 @@ export default function Header() {
               <Search className="h-5 w-5" />
             </Button>
             
+            {/* Customer Account */}
+            {customerHydrated && (
+              <div className="relative">
+                {isAuthenticated && customer ? (
+                  <div className="flex items-center space-x-2">
+                    <span className="hidden sm:inline text-sm text-gray-700">
+                      Hi, {customer.firstName}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => clearCustomer()}
+                      className="hover:bg-gray-50 rounded-xl"
+                      title="Sign out"
+                    >
+                      <User className="h-5 w-5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowLoginModal(true)}
+                    className="hover:bg-gray-50 rounded-xl"
+                    title="Sign in"
+                  >
+                    <User className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
+            )}
+
             <Button
               variant="ghost"
               size="sm"
@@ -91,6 +127,12 @@ export default function Header() {
           </div>
         </div>
       )}
+
+      {/* Customer Login Modal */}
+      <CustomerLoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+      />
     </header>
   );
 }

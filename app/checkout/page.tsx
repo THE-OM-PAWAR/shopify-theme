@@ -1,16 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useCartStore } from '@/lib/store';
 import { useCustomizationStore } from '@/lib/customization-store';
+import { useCustomerStore } from '@/lib/customer-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import CustomerLoginModal from '@/components/auth/CustomerLoginModal';
+import QuickCustomerLookup from '@/components/auth/QuickCustomerLookup';
 import Link from 'next/link';
-import { ShoppingBag, ArrowLeft, CreditCard, Truck, Shield } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, CreditCard, Truck, Shield, User, LogOut } from 'lucide-react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 
@@ -33,7 +36,10 @@ interface CheckoutFormData {
 export default function CheckoutPage() {
   const { items, totalPrice, currencyCode, clearCart } = useCartStore();
   const { getCustomization, removeCustomization } = useCustomizationStore();
+  const { customer, isAuthenticated, clearCustomer, _hasHydrated: customerHydrated } = useCustomerStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [emailForLogin, setEmailForLogin] = useState('');
   const [formData, setFormData] = useState<CheckoutFormData>({
     email: '',
     firstName: '',
@@ -63,6 +69,25 @@ export default function CheckoutPage() {
   const tax = subtotal * 0.1; // 10% tax
   const total = subtotal + shipping + tax;
 
+  // Auto-fill form with customer data when available
+  useEffect(() => {
+    if (customerHydrated && customer && isAuthenticated) {
+      setFormData(prev => ({
+        ...prev,
+        email: customer.email || prev.email,
+        firstName: customer.firstName || prev.firstName,
+        lastName: customer.lastName || prev.lastName,
+        phone: customer.phone || prev.phone,
+        address: customer.defaultAddress?.address1 || prev.address,
+        apartment: customer.defaultAddress?.address2 || prev.apartment,
+        city: customer.defaultAddress?.city || prev.city,
+        state: customer.defaultAddress?.province || prev.state,
+        pinCode: customer.defaultAddress?.zip || prev.pinCode,
+        country: customer.defaultAddress?.country || prev.country,
+      }));
+    }
+  }, [customer, isAuthenticated, customerHydrated]);
+
   useEffect(() => {
     if (items.length === 0) {
       // Redirect to home if cart is empty
@@ -77,6 +102,42 @@ export default function CheckoutPage() {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleEmailBlur = useCallback(() => {
+    // Check if email is entered and user is not authenticated
+    if (formData.email && !isAuthenticated && formData.email.includes('@')) {
+      setEmailForLogin(formData.email);
+      // Small delay to improve UX
+      setTimeout(() => {
+        setShowLoginModal(true);
+      }, 500);
+    }
+  }, [formData.email, isAuthenticated]);
+
+  const handleCustomerFound = (customerData: any) => {
+    // Customer data will be automatically filled via useEffect above
+    toast.success('Welcome back! Your details have been filled automatically.');
+  };
+
+  const handleSignOut = () => {
+    clearCustomer();
+    setFormData({
+      email: '',
+      firstName: '',
+      lastName: '',
+      address: '',
+      apartment: '',
+      city: '',
+      state: '',
+      pinCode: '',
+      country: 'India',
+      phone: '',
+      saveInfo: false,
+      paymentMethod: 'cod',
+      billingAddressSame: true,
+    });
+    toast.success('Signed out successfully');
   };
 
   const validateForm = (): boolean => {
@@ -318,6 +379,7 @@ export default function CheckoutPage() {
                   <div>
                     <Input
                       placeholder="First name (optional)"
+                      placeholder={isAuthenticated && customer ? "First name" : "First name (optional)"}
                       value={formData.firstName}
                       onChange={(e) => handleInputChange('firstName', e.target.value)}
                     />
@@ -457,20 +519,70 @@ export default function CheckoutPage() {
             {/* Complete Order Button */}
             <Button
               onClick={handleCompleteOrder}
-              disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold"
-              size="lg"
-            >
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Contact
+              </h2>
+              {customerHydrated && (
+                <div className="flex items-center gap-2">
+                  {isAuthenticated && customer ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-green-600 font-medium">
+                        Welcome, {customer.firstName}!
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSignOut}
+                        className="text-sm text-gray-600 hover:text-gray-900"
+                      >
+                        <LogOut className="h-4 w-4 mr-1" />
+                        Sign out
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowLoginModal(true)}
+                      className="text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      Sign in
+                    </Button>
+                  )}
+                </div>
+              )}
               {isLoading ? 'Processing...' : 'Complete order'}
-            </Button>
+            <div className="space-y-3">
 
             {/* Footer Links */}
             <div className="flex flex-wrap gap-4 text-sm text-blue-600">
               <Link href="/refund-policy" className="hover:underline">Refund policy</Link>
               <Link href="/shipping" className="hover:underline">Shipping</Link>
+                onBlur={handleEmailBlur}
               <Link href="/privacy" className="hover:underline">Privacy policy</Link>
+                disabled={isAuthenticated && !!customer?.email}
               <Link href="/terms" className="hover:underline">Terms of service</Link>
+              {isAuthenticated && customer && (
+                <div className="flex items-center gap-2 text-sm text-green-600">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Signed in as {customer.email}</span>
+                  {customer.ordersCount > 0 && (
+                    <span className="text-gray-500">• {customer.ordersCount} previous orders</span>
+                  )}
+                </div>
+              )}
             </div>
+            
+            {/* Quick Customer Lookup - only show if not authenticated */}
+            {customerHydrated && !isAuthenticated && (
+              <div className="mt-4">
+                <QuickCustomerLookup
+                  onCustomerFound={handleCustomerFound}
+                  initialEmail={formData.email}
+                />
+              </div>
+            )}
           </div>
 
           {/* Order Summary */}
@@ -553,6 +665,14 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Customer Login Modal */}
+      <CustomerLoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onCustomerFound={handleCustomerFound}
+        initialEmail={emailForLogin}
+      />
     </div>
   );
 }
