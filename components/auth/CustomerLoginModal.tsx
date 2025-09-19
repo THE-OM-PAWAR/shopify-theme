@@ -199,7 +199,7 @@ export default function CustomerLoginModal({
               <button
                 type="button"
                 className="text-sm text-blue-600 hover:underline"
-                onClick={() => toast.info('Password reset functionality coming soon!')}
+                onClick={() => toast('Password reset functionality coming soon!')}
               >
                 Forgot your password?
               </button>

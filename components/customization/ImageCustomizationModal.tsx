@@ -642,7 +642,22 @@ export default function ImageCustomizationModal({
           <div className="flex flex-1 overflow-auto lg:overflow-hidden flex-col lg:flex-row min-h-0">
             {/* Canvas Section */}
             <div className="flex-1 p-4 sm:p-6 bg-gray-50 flex items-center justify-center">
-              <div className="space-y-4">
+              <div className="space-y-4 relative">
+                {/* Upload Button */}
+                {!uploadedImage && (
+                  <div className="flex justify-center absolute top-[50%] translate-y-[-50%] left-[50%] translate-x-[-50%]">
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isLoading}
+                      className="flex items-center gap-2"
+                      size="sm"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {isLoading ? 'Uploading...' : 'Upload Image'}
+                    </Button>
+                  </div>
+                )}
+
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
                   <canvas
                     ref={canvasRef}

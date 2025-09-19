@@ -42,7 +42,7 @@ export default function QuickCustomerLookup({ onCustomerFound, initialEmail = ''
         onCustomerFound?.(customer);
         toast.success(`Welcome back, ${customer.firstName}! Your details have been loaded.`);
       } else if (result.found === false) {
-        toast.info('No account found with this email. You can continue as a new customer or create an account.');
+        toast('No account found with this email. You can continue as a new customer or create an account.');
       } else {
         toast.error('Failed to lookup customer information');
       }
