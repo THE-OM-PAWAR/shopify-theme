@@ -5,6 +5,7 @@ import ProductGrid from '@/components/product/ProductGrid';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import CollectionSlider from '../collection/CollectionSlider';
 
 interface FeaturedSectionProps {
   collections: ShopifyCollection[];
@@ -14,15 +15,7 @@ export default function FeaturedSection({ collections }: FeaturedSectionProps) {
   return (
     <section className="py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Featured Collections
-          </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Discover our carefully curated collections, each designed to bring you the finest products
-          </p>
-        </div>
+    
 
         {/* Collections */}
         <div className="space-y-24">

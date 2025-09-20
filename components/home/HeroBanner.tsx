@@ -13,7 +13,8 @@ const slides = [
     description: "Curated collection of premium products designed to enhance your lifestyle with unmatched quality and style.",
     cta: "Shop Now",
     href: "/collections",
-    background: "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
+    image: "/banners/hero-1.webp",
+    fallbackBackground: "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
   },
   {
     id: 2,
@@ -22,7 +23,8 @@ const slides = [
     description: "Each piece is meticulously crafted by skilled artisans, bringing you products that stand the test of time.",
     cta: "Explore",
     href: "/collections",
-    background: "bg-gradient-to-br from-gray-900 via-gray-800 to-black"
+    image: "/banners/hero-2.jpg",
+    fallbackBackground: "bg-gradient-to-br from-gray-900 via-gray-800 to-black"
   },
   {
     id: 3,
@@ -31,13 +33,19 @@ const slides = [
     description: "Where innovative design meets practical functionality, creating products that elevate your everyday experience.",
     cta: "Discover",
     href: "/collections",
-    background: "bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900"
+    image: "/banners/hero-3.jpg",
+    fallbackBackground: "bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900"
   }
 ];
 
 export default function HeroBanner() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Set<number>>(new Set());
+
+  const handleImageError = (slideId: number) => {
+    setImageLoadErrors(prev => new Set(prev).add(slideId));
+  };
 
   useEffect(() => {
     if (!isAutoPlaying) return;
@@ -68,7 +76,7 @@ export default function HeroBanner() {
   };
 
   return (
-    <section className="relative h-screen overflow-hidden">
+    <section className="relative h-[80vh] overflow-hidden">
       {/* Slides */}
       <div className="relative h-full">
         {slides.map((slide, index) => (
@@ -78,16 +86,35 @@ export default function HeroBanner() {
               index === currentSlide 
                 ? 'opacity-100 scale-100' 
                 : 'opacity-0 scale-105'
-            } ${slide.background}`}
+            } ${imageLoadErrors.has(slide.id) ? slide.fallbackBackground : ''}`}
           >
+            {/* Background Image */}
+            {!imageLoadErrors.has(slide.id) && (
+              <div 
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={{
+                  backgroundImage: `url(${slide.image})`
+                }}
+              />
+            )}
+            
+            {/* Hidden img for error detection */}
+            <img
+              src={slide.image}
+              alt=""
+              className="hidden"
+              onError={() => handleImageError(slide.id)}
+            />
+            
+            {/* Overlay */}
             <div className="absolute inset-0 bg-black/20" />
             
             <div className="relative h-full flex items-center justify-center">
               <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
-                <div className={`transform transition-all duration-1000 delay-300 ${
+                <div className={`transition-all duration-1000 delay-300 ${
                   index === currentSlide 
-                    ? 'translate-y-0 opacity-100' 
-                    : 'translate-y-8 opacity-0'
+                    ? 'opacity-100' 
+                    : 'opacity-0'
                 }`}>
                   <p className="text-sm font-medium tracking-wider uppercase mb-4 text-white/80">
                     {slide.subtitle}
@@ -98,12 +125,16 @@ export default function HeroBanner() {
                   <p className="text-lg md:text-xl mb-8 max-w-2xl mx-auto text-white/90 leading-relaxed">
                     {slide.description}
                   </p>
-                  <Button 
-                    asChild 
-                    size="lg" 
+                  <Button
+                    asChild
+                    size="lg"
                     className="bg-white text-gray-900 hover:bg-gray-100 px-8 py-4 text-lg font-semibold rounded-full transition-all duration-300 hover:scale-105"
                   >
-                    <Link href={slide.href}>{slide.cta}</Link>
+                    <Link
+                      href={slide.href}
+                    >
+                      {slide.cta}
+                    </Link>
                   </Button>
                 </div>
               </div>

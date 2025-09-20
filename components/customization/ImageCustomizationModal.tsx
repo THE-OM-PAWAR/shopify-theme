@@ -152,13 +152,18 @@ export default function ImageCustomizationModal({
     const canvasAspect = canvasDimensions.width / canvasDimensions.height;
     let baseWidth: number;
     let baseHeight: number;
+    
+    // Cover behavior: fill the entire canvas while maintaining aspect ratio
     if (imgAspect > canvasAspect) {
-      baseWidth = canvasDimensions.width * 0.8;
-      baseHeight = baseWidth / imgAspect;
-    } else {
-      baseHeight = canvasDimensions.height * 0.8;
+      // Image is wider than canvas - scale to height and crop width
+      baseHeight = canvasDimensions.height;
       baseWidth = baseHeight * imgAspect;
+    } else {
+      // Image is taller than canvas - scale to width and crop height
+      baseWidth = canvasDimensions.width;
+      baseHeight = baseWidth / imgAspect;
     }
+    
     return { width: baseWidth * imageState.scale, height: baseHeight * imageState.scale };
   };
 
@@ -222,12 +227,16 @@ export default function ImageCustomizationModal({
       const canvasAspect = canvasDimensions.width / canvasDimensions.height;
       let drawWidth: number;
       let drawHeight: number;
+      
+      // Cover behavior: fill the entire canvas while maintaining aspect ratio
       if (imgAspect > canvasAspect) {
-        drawWidth = canvasDimensions.width * 0.8;
-        drawHeight = drawWidth / imgAspect;
-      } else {
-        drawHeight = canvasDimensions.height * 0.8;
+        // Image is wider than canvas - scale to height and crop width
+        drawHeight = canvasDimensions.height;
         drawWidth = drawHeight * imgAspect;
+      } else {
+        // Image is taller than canvas - scale to width and crop height
+        drawWidth = canvasDimensions.width;
+        drawHeight = drawWidth / imgAspect;
       }
       
       ctx.drawImage(
@@ -273,12 +282,16 @@ export default function ImageCustomizationModal({
     const canvasAspect = canvasDimensions.width / canvasDimensions.height;
     
     let drawWidth, drawHeight;
+    
+    // Cover behavior: fill the entire canvas while maintaining aspect ratio
     if (imgAspect > canvasAspect) {
-      drawWidth = canvasDimensions.width * 0.8;
-      drawHeight = drawWidth / imgAspect;
-    } else {
-      drawHeight = canvasDimensions.height * 0.8;
+      // Image is wider than canvas - scale to height and crop width
+      drawHeight = canvasDimensions.height;
       drawWidth = drawHeight * imgAspect;
+    } else {
+      // Image is taller than canvas - scale to width and crop height
+      drawWidth = canvasDimensions.width;
+      drawHeight = drawWidth / imgAspect;
     }
     
     ctx.drawImage(
@@ -622,7 +635,7 @@ export default function ImageCustomizationModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl w-[95vw] h-[90vh] overflow-auto lg:overflow-hidden p-0">
-        <div className="flex flex-col h-full min-h-0">
+        <div className="flex flex-col h-full min-h-0 overflow-scroll">
           {/* Header */}
           <DialogHeader className="px-6 py-4 border-b border-gray-100">
             <div className="flex items-center justify-between">
@@ -632,16 +645,13 @@ export default function ImageCustomizationModal({
                 </DialogTitle>
                 <p className="text-sm text-gray-500 mt-1">Upload and position your image</p>
               </div>
-              <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
-                <X className="h-4 w-4" />
-              </Button>
             </div>
           </DialogHeader>
 
           {/* Content */}
-          <div className="flex flex-1 overflow-auto lg:overflow-hidden flex-col lg:flex-row min-h-0">
+          <div className="flex flex-1 overflow-auto lg:overflow-hidden flex-col lg:flex-col min-h-0">
             {/* Canvas Section */}
-            <div className="flex-1 p-4 sm:p-6 bg-gray-50 flex items-center justify-center">
+            <div className="flex-1 p-0 sm:p-6 bg-gray-50 flex items-center justify-center">
               <div className="space-y-4 relative">
                 {/* Upload Button */}
                 {!uploadedImage && (
@@ -658,7 +668,7 @@ export default function ImageCustomizationModal({
                   </div>
                 )}
 
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
                   <canvas
                     ref={canvasRef}
                     width={canvasDimensions.width}
@@ -699,12 +709,12 @@ export default function ImageCustomizationModal({
             </div>
 
             {/* Controls Section */}
-            <div className="w-full lg:w-80 border-t lg:border-t-0 lg:border-l border-gray-100 bg-white">
+            <div className="w-full lg:w-full border-t lg:border-t-0 lg:border-l border-gray-100 bg-white">
               <div className="p-6 space-y-6">
                 {uploadedImage ? (
-                  <>
+                  <div className="flex flex-row gap-3 items-center">
                     {/* Rotation Control */}
-                    <div className="space-y-3">
+                    <div className="space-y-3 w-full ">
                       <div className="flex items-center justify-between">
                         <Label className="text-sm font-medium text-gray-700">Rotation</Label>
                         <span className="text-sm text-gray-500">{imageState.rotation}°</span>
@@ -719,36 +729,12 @@ export default function ImageCustomizationModal({
                       />
                     </div>
 
-                    {/* Position Info */}
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <p className="text-xs text-gray-600 mb-1">
-                        Position: ({Math.round(imageState.x)}, {Math.round(imageState.y)})
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Drag the image on canvas to reposition
-                      </p>
-                    </div>
-
                     {/* Reset Button */}
-                    <Button variant="outline" onClick={handleReset} className="w-full" size="sm">
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Reset Position
+                    <Button variant="outline" onClick={handleReset} className="w-min mt-2" size="sm">
+                      <RotateCcw className="h-4 w-4 " />
                     </Button>
-                  </>
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <ImageIcon className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <h3 className="font-medium text-gray-900 mb-2">Upload Your Image</h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Choose an image to customize your product
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      Supported: JPG, PNG, GIF
-                    </p>
                   </div>
-                )}
+                ) : ("")}
 
                 {/* Frame Load Error Warning */}
                 {frameImageLoadError && (
@@ -762,8 +748,8 @@ export default function ImageCustomizationModal({
               </div>
 
               {/* Action Buttons */}
-              <div className="border-t border-gray-100 p-4 sm:p-6">
-                <div className="flex gap-3">
+              <div className=" m-auto flex justify-center items-center w-full border-t border-gray-100 p-4 sm:p-6">
+                <div className="flex gap-3 m-auto">
                   <Button variant="secondary" onClick={handleSkip} className="flex-1" size="sm">
                     Skip
                   </Button>

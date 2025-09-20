@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
@@ -37,7 +39,15 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           {/* Brand */}
           <div className="col-span-1">
-            <h3 className="text-3xl font-bold mb-6 tracking-tight">Storefront</h3>
+            <div className="mb-6">
+              <Image
+                src="/logo/logo.avif"
+                alt="Storefront Logo"
+                width={150}
+                height={50}
+                className="h-12 w-auto"
+              />
+            </div>
             <p className="text-gray-400 mb-6 leading-relaxed">
               Your premium destination for quality products and exceptional service. Crafted with care, delivered with excellence.
             </p>

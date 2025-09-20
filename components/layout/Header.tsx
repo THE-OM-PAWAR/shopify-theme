@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ShoppingBag, Search, Menu, X, User } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '@/lib/store';
@@ -27,8 +28,15 @@ export default function Header() {
         <div className="flex justify-between items-center h-20">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link href="/" className="text-2xl font-bold text-gray-900 hover:text-gray-700 transition-colors tracking-tight">
-              Storefront
+            <Link href="/" className="flex items-center">
+              <Image
+                src="/logo/logo.avif"
+                alt="Storefront Logo"
+                width={120}
+                height={40}
+                className="h-8 w-auto sm:h-10 hover:opacity-80 transition-opacity"
+                priority
+              />
             </Link>
           </div>
 
