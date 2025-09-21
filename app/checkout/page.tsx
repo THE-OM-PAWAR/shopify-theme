@@ -1,18 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCustomerStore } from '@/lib/customer-store';
 import { useCartStore } from '@/lib/store';
-import { useCustomizationStore } from '@/lib/customization-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Link from 'next/link';
-import { ShoppingBag, ArrowLeft, CreditCard, Truck, Shield } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, CreditCard, Truck, Shield, Loader2, Plus, MapPin, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
+import { EmailAuthModal } from '@/components/auth/EmailAuthModal';
+import RazorpayPayment from '@/components/checkout/RazorpayPayment';
 
 interface CheckoutFormData {
   email: string;
@@ -30,10 +33,30 @@ interface CheckoutFormData {
   billingAddressSame: boolean;
 }
 
+interface Address {
+  id: string;
+  firstName: string;
+  lastName: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  province: string;
+  zip: string;
+  country: string;
+  phone?: string;
+}
+
 export default function CheckoutPage() {
+  const router = useRouter();
+  const { customer, isAuthenticated, _hasHydrated } = useCustomerStore();
   const { items, totalPrice, currencyCode, clearCart } = useCartStore();
-  const { getCustomization, removeCustomization } = useCustomizationStore();
+  
   const [isLoading, setIsLoading] = useState(false);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  
   const [formData, setFormData] = useState<CheckoutFormData>({
     email: '',
     firstName: '',
@@ -45,10 +68,13 @@ export default function CheckoutPage() {
     pinCode: '',
     country: 'India',
     phone: '',
-    saveInfo: false,
-    paymentMethod: 'cod',
+    saveInfo: true,
+    paymentMethod: 'razorpay', // Default to Razorpay
     billingAddressSame: true,
   });
+
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const indianStates = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -64,13 +90,110 @@ export default function CheckoutPage() {
   const total = subtotal + shipping + tax;
 
   useEffect(() => {
+    // If cart is empty, redirect to home
     if (items.length === 0) {
-      // Redirect to home if cart is empty
+      toast.error('Your cart is empty');
       setTimeout(() => {
-        window.location.href = '/';
-      }, 3000);
+        router.push('/');
+      }, 2000);
+      return;
     }
-  }, [items]);
+
+    // If user is not authenticated, show auth modal
+    if (_hasHydrated && !isAuthenticated) {
+      setShowAuthModal(true);
+    }
+
+    // If user is authenticated, fetch their addresses and populate form
+    if (_hasHydrated && isAuthenticated && customer) {
+      fetchCustomerAddresses();
+      
+      // Populate form with customer data
+      setFormData(prev => ({
+        ...prev,
+        email: customer.email || '',
+        firstName: customer.firstName || '',
+        lastName: customer.lastName || '',
+        phone: customer.phone || '',
+      }));
+
+      // If customer has a default address, select it
+      if (customer.defaultAddress) {
+        setSelectedAddressId(customer.defaultAddress.id);
+      }
+    }
+  }, [_hasHydrated, isAuthenticated, customer, items.length, router]);
+
+  // Fetch customer addresses from Shopify
+  const fetchCustomerAddresses = async () => {
+    if (!customer || !customer.email) return;
+
+    try {
+      const response = await fetch('/api/customer/addresses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: customer.email }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch addresses');
+      }
+
+      const data = await response.json();
+      setAddresses(data.addresses || []);
+      
+      // If customer has addresses but no selected address, select the first one
+      if (data.addresses?.length > 0 && !selectedAddressId) {
+        setSelectedAddressId(data.addresses[0].id);
+        populateFormWithAddress(data.addresses[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching addresses:', error);
+      toast.error('Failed to load your saved addresses');
+    }
+  };
+
+  // Populate form with selected address
+  const populateFormWithAddress = (address: Address) => {
+    setFormData(prev => ({
+      ...prev,
+      firstName: address.firstName || prev.firstName,
+      lastName: address.lastName || prev.lastName,
+      address: address.address1 || '',
+      apartment: address.address2 || '',
+      city: address.city || '',
+      state: address.province || '',
+      pinCode: address.zip || '',
+      country: address.country || 'India',
+      phone: address.phone || prev.phone,
+    }));
+  };
+
+  // Handle address selection change
+  const handleAddressChange = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    
+    if (addressId === 'new') {
+      setShowNewAddressForm(true);
+      // Clear address fields but keep personal info
+      setFormData(prev => ({
+        ...prev,
+        address: '',
+        apartment: '',
+        city: '',
+        state: '',
+        pinCode: '',
+      }));
+    } else {
+      setShowNewAddressForm(false);
+      const selectedAddress = addresses.find(addr => addr.id === addressId);
+      if (selectedAddress) {
+        populateFormWithAddress(selectedAddress);
+      }
+    }
+  };
 
   const handleInputChange = (field: keyof CheckoutFormData, value: string | boolean) => {
     setFormData(prev => ({
@@ -114,81 +237,114 @@ export default function CheckoutPage() {
     return true;
   };
 
-  const handleCompleteOrder = async () => {
+  // Prepare order data for Shopify
+  const prepareOrderData = useCallback(() => {
+    return {
+      email: formData.email,
+      shipping_address: {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        address1: formData.address,
+        address2: formData.apartment,
+        city: formData.city,
+        province: formData.state,
+        zip: formData.pinCode,
+        country: formData.country,
+        phone: formData.phone,
+      },
+      billing_address: formData.billingAddressSame ? {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        address1: formData.address,
+        address2: formData.apartment,
+        city: formData.city,
+        province: formData.state,
+        zip: formData.pinCode,
+        country: formData.country,
+        phone: formData.phone,
+      } : null,
+      line_items: items.map(item => ({
+        variant_id: item.variantId.includes('gid://shopify/ProductVariant/') 
+          ? item.variantId.replace('gid://shopify/ProductVariant/', '')
+          : item.variantId,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      total_price: total.toFixed(2),
+      subtotal_price: subtotal.toFixed(2),
+      total_tax: tax.toFixed(2),
+      shipping_lines: shipping > 0 ? [{
+        title: 'Standard Shipping',
+        price: shipping.toFixed(2),
+      }] : [],
+      payment_method: formData.paymentMethod,
+      save_address: formData.saveInfo && showNewAddressForm,
+    };
+  }, [formData, items, total, subtotal, tax, shipping, showNewAddressForm]);
+
+  // Handle Razorpay payment success
+  const handlePaymentSuccess = async (paymentDetails: any) => {
+    setPaymentProcessing(true);
+    setPaymentError(null);
+    
+    try {
+      // Verify payment and create order
+      const response = await fetch('/api/payment/razorpay/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...paymentDetails,
+          orderData: prepareOrderData(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast.success('Payment successful! Order placed.');
+        clearCart();
+        
+        // Redirect to success page with order details
+        const params = new URLSearchParams({
+          order_id: result.order.id.toString(),
+          order_number: result.order.order_number,
+          total_price: result.order.total_price,
+          currency: result.order.currency,
+          payment_id: result.order.payment_id
+        });
+        router.push(`/checkout/success?${params.toString()}`);
+      } else {
+        console.error('Payment verification failed:', result);
+        throw new Error(result.error || result.details || 'Payment verification failed');
+      }
+    } catch (error) {
+      console.error('Payment processing error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process payment. Please try again.';
+      setPaymentError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
+  // Handle Razorpay payment error
+  const handlePaymentError = (error: any) => {
+    console.error('Payment failed:', error);
+    const errorMessage = error.description || 'Payment failed. Please try again.';
+    setPaymentError(errorMessage);
+    toast.error(errorMessage);
+  };
+
+  // Handle COD order placement
+  const handleCodOrder = async () => {
     if (!validateForm()) return;
 
     setIsLoading(true);
     try {
-      // Collect customization data for items that have customizations
-      const customizations: Array<{
-        originalImageUrl: string;
-        croppedImageUrl: string;
-        renderedImageUrl: string;
-        productTitle: string;
-        variantTitle: string;
-      }> = [];
+      const orderData = prepareOrderData();
       
-      items.forEach(item => {
-        const customization = getCustomization(item.productId);
-        if (customization) {
-          customizations.push({
-            originalImageUrl: customization.originalImageUrl,
-            croppedImageUrl: customization.croppedImageUrl,
-            renderedImageUrl: customization.renderedImageUrl,
-            productTitle: item.title,
-            variantTitle: item.variantTitle || 'Default'
-          });
-        }
-      });
-      
-      // Prepare order data for Shopify
-      const orderData = {
-        email: formData.email,
-        shipping_address: {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          address1: formData.address,
-          address2: formData.apartment,
-          city: formData.city,
-          province: formData.state,
-          zip: formData.pinCode,
-          country: formData.country,
-          phone: formData.phone,
-        },
-        billing_address: formData.billingAddressSame ? {
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          address1: formData.address,
-          address2: formData.apartment,
-          city: formData.city,
-          province: formData.state,
-          zip: formData.pinCode,
-          country: formData.country,
-          phone: formData.phone,
-        } : null,
-        line_items: items.map(item => ({
-          variant_id: item.variantId.includes('gid://shopify/ProductVariant/') 
-            ? item.variantId.replace('gid://shopify/ProductVariant/', '')
-            : item.variantId,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        total_price: total.toFixed(2),
-        subtotal_price: subtotal.toFixed(2),
-        total_tax: tax.toFixed(2),
-        shipping_lines: shipping > 0 ? [{
-          title: 'Standard Shipping',
-          price: shipping.toFixed(2),
-        }] : [],
-        payment_method: formData.paymentMethod,
-        customizations: customizations, // Include customization data
-      };
-
-      console.log('Creating order with data:', orderData);
-      if (customizations.length > 0) {
-        console.log('Order includes customizations for', customizations.length, 'products');
-      }
-
       const response = await fetch('/api/create-order', {
         method: 'POST',
         headers: {
@@ -203,18 +359,6 @@ export default function CheckoutPage() {
         toast.success('Order placed successfully!');
         clearCart();
         
-        // Clear customizations from local storage after successful order
-        if (customizations.length > 0) {
-          items.forEach(item => {
-            const customization = getCustomization(item.productId);
-            if (customization) {
-              // Remove customizations from local storage since they're now processed
-              removeCustomization(item.productId);
-              console.log(`Customization for ${item.title} has been processed and uploaded to Shopify`);
-            }
-          });
-        }
-        
         // Redirect to success page with order details
         const params = new URLSearchParams({
           order_id: result.order.id.toString(),
@@ -222,7 +366,7 @@ export default function CheckoutPage() {
           total_price: result.order.total_price,
           currency: result.order.currency
         });
-        window.location.href = `/checkout/success?${params.toString()}`;
+        router.push(`/checkout/success?${params.toString()}`);
       } else {
         console.error('Order creation failed:', result);
         throw new Error(result.error || result.details || 'Failed to create order');
@@ -236,6 +380,19 @@ export default function CheckoutPage() {
     }
   };
 
+  // Main checkout handler based on payment method
+  const handleCompleteOrder = async () => {
+    if (!validateForm()) return;
+
+    if (formData.paymentMethod === 'cod') {
+      await handleCodOrder();
+    } else {
+      // For Razorpay, the payment is initiated by the RazorpayPayment component
+      // We don't need to do anything here
+    }
+  };
+
+  // If cart is empty, show empty cart message
   if (items.length === 0) {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -280,12 +437,7 @@ export default function CheckoutPage() {
           <div className="space-y-8">
             {/* Contact Information */}
             <div className="bg-white p-6 rounded-lg shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Contact</h2>
-                <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700">
-                  Sign in
-                </Link>
-              </div>
+              <h2 className="text-lg font-semibold mb-4">Contact</h2>
               <div>
                 <Input
                   type="email"
@@ -293,7 +445,13 @@ export default function CheckoutPage() {
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   className="w-full"
+                  disabled={isAuthenticated}
                 />
+                {isAuthenticated && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Logged in as {customer?.email}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -301,108 +459,184 @@ export default function CheckoutPage() {
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <h2 className="text-lg font-semibold mb-4">Delivery</h2>
               
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="country">Country/Region</Label>
-                  <Select value={formData.country} onValueChange={(value) => handleInputChange('country', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="India">India</SelectItem>
-                    </SelectContent>
-                  </Select>
+              {/* Saved Addresses */}
+              {isAuthenticated && addresses.length > 0 && (
+                <div className="mb-6">
+                  <Label htmlFor="saved-address" className="mb-2 block">Select a saved address</Label>
+                  <RadioGroup 
+                    value={selectedAddressId} 
+                    onValueChange={handleAddressChange}
+                    className="space-y-3"
+                  >
+                    {addresses.map(address => (
+                      <div key={address.id} className="flex items-start space-x-2 border rounded-md p-3">
+                        <RadioGroupItem value={address.id} id={`address-${address.id}`} className="mt-1" />
+                        <div className="flex-1">
+                          <Label htmlFor={`address-${address.id}`} className="font-medium cursor-pointer">
+                            {address.firstName} {address.lastName}
+                          </Label>
+                          <p className="text-sm text-gray-600">
+                            {address.address1}
+                            {address.address2 && `, ${address.address2}`}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {address.city}, {address.province}, {address.zip}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {address.country}
+                          </p>
+                          {address.phone && (
+                            <p className="text-sm text-gray-600">
+                              {address.phone}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <div className="flex items-start space-x-2 border rounded-md p-3 border-dashed">
+                      <RadioGroupItem value="new" id="address-new" className="mt-1" />
+                      <div className="flex-1">
+                        <Label htmlFor="address-new" className="font-medium cursor-pointer flex items-center">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add a new address
+                        </Label>
+                      </div>
+                    </div>
+                  </RadioGroup>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
+              )}
+              
+              {/* Address Form (shown if no saved addresses or "Add new address" selected) */}
+              {(showNewAddressForm || !isAuthenticated || addresses.length === 0) && (
+                <div className="space-y-4">
                   <div>
-                    <Input
-                      placeholder="First name (optional)"
-                      value={formData.firstName}
-                      onChange={(e) => handleInputChange('firstName', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Input
-                      placeholder="Last name"
-                      value={formData.lastName}
-                      onChange={(e) => handleInputChange('lastName', e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Input
-                    placeholder="Address"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <Input
-                    placeholder="Apartment, suite, etc. (optional)"
-                    value={formData.apartment}
-                    onChange={(e) => handleInputChange('apartment', e.target.value)}
-                  />
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Input
-                      placeholder="City"
-                      value={formData.city}
-                      onChange={(e) => handleInputChange('city', e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Select value={formData.state} onValueChange={(value) => handleInputChange('state', value)}>
+                    <Label htmlFor="country">Country/Region</Label>
+                    <Select value={formData.country} onValueChange={(value) => handleInputChange('country', value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="State" />
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {indianStates.map(state => (
-                          <SelectItem key={state} value={state}>{state}</SelectItem>
-                        ))}
+                        <SelectItem value="India">India</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName">First name</Label>
+                      <Input
+                        id="firstName"
+                        placeholder="First name"
+                        value={formData.firstName}
+                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Last name</Label>
+                      <Input
+                        id="lastName"
+                        placeholder="Last name"
+                        value={formData.lastName}
+                        onChange={(e) => handleInputChange('lastName', e.target.value)}
+                      />
+                    </div>
+                  </div>
+
                   <div>
+                    <Label htmlFor="address">Address</Label>
                     <Input
-                      placeholder="PIN code"
-                      value={formData.pinCode}
-                      onChange={(e) => handleInputChange('pinCode', e.target.value)}
+                      id="address"
+                      placeholder="Address"
+                      value={formData.address}
+                      onChange={(e) => handleInputChange('address', e.target.value)}
                     />
                   </div>
-                </div>
 
-                <div>
-                  <Input
-                    placeholder="Phone"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="apartment">Apartment, suite, etc. (optional)</Label>
+                    <Input
+                      id="apartment"
+                      placeholder="Apartment, suite, etc."
+                      value={formData.apartment}
+                      onChange={(e) => handleInputChange('apartment', e.target.value)}
+                    />
+                  </div>
 
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="save-info"
-                    checked={formData.saveInfo}
-                    onCheckedChange={(checked) => handleInputChange('saveInfo', checked as boolean)}
-                  />
-                  <Label htmlFor="save-info" className="text-sm">
-                    Save this information for next time
-                  </Label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="city">City</Label>
+                      <Input
+                        id="city"
+                        placeholder="City"
+                        value={formData.city}
+                        onChange={(e) => handleInputChange('city', e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="state">State</Label>
+                      <Select value={formData.state} onValueChange={(value) => handleInputChange('state', value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="State" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {indianStates.map(state => (
+                            <SelectItem key={state} value={state}>{state}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="pinCode">PIN code</Label>
+                      <Input
+                        id="pinCode"
+                        placeholder="PIN code"
+                        value={formData.pinCode}
+                        onChange={(e) => handleInputChange('pinCode', e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input
+                      id="phone"
+                      placeholder="Phone"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                    />
+                  </div>
+
+                  {isAuthenticated && showNewAddressForm && (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="save-info"
+                        checked={formData.saveInfo}
+                        onCheckedChange={(checked) => handleInputChange('saveInfo', checked as boolean)}
+                      />
+                      <Label htmlFor="save-info" className="text-sm">
+                        Save this address for future orders
+                      </Label>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Shipping Method */}
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <h2 className="text-lg font-semibold mb-4">Shipping method</h2>
-              <div className="bg-blue-50 p-4 rounded-lg text-center text-sm text-blue-700">
-                <Truck className="h-5 w-5 mx-auto mb-2" />
-                Enter your shipping address to view available shipping methods.
+              <div className="flex items-center justify-between border rounded-lg p-4">
+                <div className="flex items-center">
+                  <Truck className="h-5 w-5 text-gray-500 mr-3" />
+                  <div>
+                    <p className="font-medium">Standard Shipping</p>
+                    <p className="text-sm text-gray-500">Delivery in 3-5 business days</p>
+                  </div>
+                </div>
+                <div className="text-right font-medium">
+                  {shipping > 0 ? `₹${shipping.toFixed(2)}` : 'FREE'}
+                </div>
               </div>
             </div>
 
@@ -418,19 +652,30 @@ export default function CheckoutPage() {
               >
                 <div className="border rounded-lg p-4">
                   <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="razorpay" id="razorpay" />
+                    <Label htmlFor="razorpay" className="flex-1">
+                      <div className="flex items-center justify-between w-full">
+                        <span>Credit/Debit Card, UPI, Wallets</span>
+                        <span className="font-semibold text-blue-600">Razorpay</span>
+                      </div>
+                    </Label>
+                  </div>
+                </div>
+                
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
                     <RadioGroupItem value="cod" id="cod" />
                     <Label htmlFor="cod" className="flex-1">Cash on Delivery (COD)</Label>
                   </div>
                 </div>
-                
-                <div className="border rounded-lg p-4 opacity-50">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="card" id="card" disabled />
-                    <Label htmlFor="card" className="flex-1">Credit/Debit Card (Coming Soon)</Label>
-                    <CreditCard className="h-4 w-4" />
-                  </div>
-                </div>
               </RadioGroup>
+              
+              {paymentError && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start">
+                  <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                  <div>{paymentError}</div>
+                </div>
+              )}
             </div>
 
             {/* Billing Address */}
@@ -455,14 +700,36 @@ export default function CheckoutPage() {
             </div>
 
             {/* Complete Order Button */}
-            <Button
-              onClick={handleCompleteOrder}
-              disabled={isLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold"
-              size="lg"
-            >
-              {isLoading ? 'Processing...' : 'Complete order'}
-            </Button>
+            {formData.paymentMethod === 'razorpay' ? (
+              <RazorpayPayment
+                amount={total}
+                currency="INR"
+                customerName={`${formData.firstName} ${formData.lastName}`}
+                customerEmail={formData.email}
+                customerPhone={formData.phone}
+                onSuccess={handlePaymentSuccess}
+                onError={handlePaymentError}
+                disabled={!validateForm() || paymentProcessing}
+                buttonText="Pay & Complete Order"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold"
+              />
+            ) : (
+              <Button
+                onClick={handleCompleteOrder}
+                disabled={isLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold"
+                size="lg"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  `Complete order`
+                )}
+              </Button>
+            )}
 
             {/* Footer Links */}
             <div className="flex flex-wrap gap-4 text-sm text-blue-600">
@@ -479,53 +746,39 @@ export default function CheckoutPage() {
             
             {/* Cart Items */}
             <div className="space-y-4 mb-6">
-              {items.map((item) => {
-                // Check if this product has customization
-                const customization = getCustomization(item.productId);
-                const displayImage = customization?.renderedImageUrl || item.image;
-                
-                return (
-                  <div key={item.id} className="flex items-start space-x-4">
-                    <div className="relative">
-                      {displayImage && (
-                        <div className="w-16 h-16 relative rounded-lg overflow-hidden bg-gray-100">
-                          <Image
-                            src={displayImage}
-                            alt={item.title}
-                            fill
-                            className="object-cover"
-                            sizes="64px"
-                          />
-                        </div>
-                      )}
-                      {customization && (
-                        <div className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-xs px-1 py-0.5 rounded">
-                          Custom
-                        </div>
-                      )}
-                      <div className="absolute -top-2 -right-2 bg-gray-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {item.quantity}
+              {items.map((item) => (
+                <div key={item.id} className="flex items-start space-x-4">
+                  <div className="relative">
+                    {item.image && (
+                      <div className="w-16 h-16 relative rounded-lg overflow-hidden bg-gray-100">
+                        <Image
+                          src={item.image}
+                          alt={item.title}
+                          fill
+                          className="object-cover"
+                          sizes="64px"
+                        />
                       </div>
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-sm line-clamp-2">{item.title}</h3>
-                      {item.variantTitle && (
-                        <p className="text-xs text-gray-500">{item.variantTitle}</p>
-                      )}
-                      {customization && (
-                        <p className="text-xs text-blue-600 font-medium">Customized Product</p>
-                      )}
-                    </div>
-
-                    <div className="text-right">
-                      <p className="font-semibold">
-                        ₹{(parseFloat(item.price) * item.quantity).toFixed(2)}
-                      </p>
+                    )}
+                    <div className="absolute -top-2 -right-2 bg-gray-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {item.quantity}
                     </div>
                   </div>
-                );
-              })}
+                  
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-sm line-clamp-2">{item.title}</h3>
+                    {item.variantTitle && (
+                      <p className="text-xs text-gray-500">{item.variantTitle}</p>
+                    )}
+                  </div>
+
+                  <div className="text-right">
+                    <p className="font-semibold">
+                      ₹{(parseFloat(item.price) * item.quantity).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Pricing Breakdown */}
@@ -553,6 +806,16 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Authentication Modal */}
+      <EmailAuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)}
+        onAuthSuccess={() => {
+          // Keep the user on the checkout page after authentication
+          setShowAuthModal(false);
+        }}
+      />
     </div>
   );
 }

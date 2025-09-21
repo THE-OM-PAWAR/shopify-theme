@@ -1,16 +1,11 @@
-'use client';
-
-import { Elements } from '@stripe/react-stripe-js';
-import { stripePromise } from '@/lib/stripe';
-
 export default function CheckoutSuccessLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <Elements stripe={stripePromise}>
+    <div className="bg-gray-50">
       {children}
-    </Elements>
+    </div>
   );
 }

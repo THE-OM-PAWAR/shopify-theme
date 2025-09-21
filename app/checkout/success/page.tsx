@@ -98,12 +98,6 @@ export default function CheckoutSuccessPage() {
                   <span className="text-orange-600 font-semibold">Processing</span>
                 </div>
               </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <p className="text-xs text-gray-500">
-                  📎 Any customized product images have been automatically uploaded to our system and will be processed with your order.
-                </p>
-              </div>
             </div>
           )}
 
