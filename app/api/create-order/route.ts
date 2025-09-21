@@ -1,52 +1,77 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 
-interface CustomizationData {
-  originalImageUrl: string;
-  croppedImageUrl: string;
-  renderedImageUrl: string;
-  productTitle: string;
-  variantTitle: string;
-}
-
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const orderData = await req.json();
-    console.log('Received order data:', orderData);
+    const orderData = await request.json();
 
-    // Validate required fields
-    if (!orderData.email || !orderData.shipping_address || !orderData.line_items) {
-      return NextResponse.json(
-        { error: "Missing required order data" },
-        { status: 400 }
-      );
+    if (!orderData.email || !orderData.shipping_address || !orderData.line_items || orderData.line_items.length === 0) {
+      return NextResponse.json({ error: 'Missing required order data' }, { status: 400 });
     }
 
     const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
     const accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+    const shipMozoApiKey = process.env.SHIPMOZO_API_KEY;
 
     if (!shopifyDomain || !accessToken) {
-      console.error('Missing Shopify credentials:', { 
-        domain: !!shopifyDomain, 
-        token: !!accessToken 
-      });
-      return NextResponse.json(
-        { error: "Shopify credentials are missing" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Shopify credentials missing' }, { status: 500 });
     }
 
-    // Extract customization data from order
-    const customizations: CustomizationData[] = orderData.customizations || [];
+    // 1. Create order in Shopify
+    const shopifyOrder = await createShopifyOrder(orderData, shopifyDomain, accessToken);
+    
+    if (!shopifyOrder) {
+      return NextResponse.json({ error: 'Failed to create order in Shopify' }, { status: 500 });
+    }
 
-    // Build the Shopify order payload
-    const shopifyOrder = {
+    // 2. Create shipment in ShipMozo if available
+    let shipment = null;
+    if (shipMozoApiKey && shopifyOrder.id) {
+      shipment = await createShipMozoShipment(shopifyOrder, shipMozoApiKey);
+    }
+
+    // 3. Return success response with order details
+    return NextResponse.json({
+      success: true,
+      order: {
+        id: shopifyOrder.id,
+        order_number: shopifyOrder.name,
+        total_price: shopifyOrder.total_price,
+        currency: shopifyOrder.currency,
+        status: shopifyOrder.financial_status,
+        fulfillment_status: shopifyOrder.fulfillment_status || 'unfulfilled',
+        shipping_address: shopifyOrder.shipping_address,
+        shipment: shipment,
+      },
+    });
+  } catch (error) {
+    console.error('Order creation error:', error);
+    return NextResponse.json(
+      { error: 'Failed to create order', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
+
+// Create order in Shopify
+async function createShopifyOrder(orderData: any, shopifyDomain: string, accessToken: string) {
+  try {
+    // Format the order data for Shopify API
+    const shopifyOrderData = {
       order: {
         email: orderData.email,
+        fulfillment_status: 'unfulfilled',
+        send_receipt: true,
+        send_fulfillment_receipt: true,
+        line_items: orderData.line_items.map((item: any) => ({
+          variant_id: parseInt(item.variant_id),
+          quantity: item.quantity,
+          price: item.price,
+        })),
         shipping_address: {
           first_name: orderData.shipping_address.first_name,
           last_name: orderData.shipping_address.last_name,
           address1: orderData.shipping_address.address1,
-          address2: orderData.shipping_address.address2 || "",
+          address2: orderData.shipping_address.address2 || '',
           city: orderData.shipping_address.city,
           province: orderData.shipping_address.province,
           zip: orderData.shipping_address.zip,
@@ -54,171 +79,111 @@ export async function POST(req: NextRequest) {
           phone: orderData.shipping_address.phone,
         },
         billing_address: orderData.billing_address || orderData.shipping_address,
-        line_items: orderData.line_items.map((item: any) => ({
-          variant_id: item.variant_id,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        financial_status: "pending", // COD orders start as pending
-        fulfillment_status: "unfulfilled",
-        tags: "payment_method:cod,source:nextjs-storefront",
-        note: "Payment Method: Cash on Delivery (COD)",
-        currency: "INR",
-        source_name: "nextjs-storefront",
-        processing_method: "manual",
-        // Add shipping lines if provided
-        ...(orderData.shipping_lines && orderData.shipping_lines.length > 0 && {
-          shipping_lines: orderData.shipping_lines
-        }),
-        // Add tax lines if provided
-        ...(orderData.total_tax && parseFloat(orderData.total_tax) > 0 && {
-          tax_lines: [{
-            title: "Tax",
-            price: orderData.total_tax,
-            rate: 0.1
-          }]
-        })
+        shipping_lines: orderData.shipping_lines || [
+          {
+            title: 'Standard Shipping',
+            price: '0.00',
+            code: 'standard',
+          },
+        ],
+        tags: 'website-order',
+        note: `Payment Method: ${orderData.payment_method || 'COD'}`,
       },
     };
 
-    console.log('Sending to Shopify:', JSON.stringify(shopifyOrder, null, 2));
-
-    const response = await fetch(
-      `https://${shopifyDomain}/admin/api/2024-01/orders.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": accessToken,
-        },
-        body: JSON.stringify(shopifyOrder),
-      }
-    );
-
-    const result = await response.json();
-    console.log('Shopify response:', result);
-
-    if (!response.ok) {
-      console.error('Shopify API error:', result);
-      return NextResponse.json(
+    // If payment details are available, add them to the order
+    if (orderData.payment_details) {
+      (shopifyOrderData.order as any).transactions = [
         {
-          error: "Failed to create order in Shopify",
-          details: result.errors || result,
-          status: response.status
+          kind: 'sale',
+          status: 'success',
+          amount: orderData.total_price,
+          gateway: 'razorpay',
+          payment_details: {
+            credit_card_number: 'XXXX',
+            credit_card_company: 'Razorpay',
+          },
         },
-        { status: response.status }
-      );
+      ];
     }
 
-    const order = result.order;
-    
-    // Upload customization images to Shopify if any exist
-    let imageUploadResults = null;
-    let cloudinaryCleanupResults = null;
-    
-    if (customizations.length > 0) {
-      try {
-        console.log('Uploading customization images to Shopify...');
-        
-        // Prepare image data for upload
-        const imageUploadData = customizations.map(customization => ({
-          ...customization,
-          orderNumber: order.order_number || order.name || order.id.toString()
-        }));
-        
-        // Upload images to Shopify
-        const uploadResponse = await fetch(`${req.nextUrl.origin}/api/upload-order-images`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ images: imageUploadData }),
-        });
-        
-        if (uploadResponse.ok) {
-          imageUploadResults = await uploadResponse.json();
-          console.log('Images uploaded to Shopify successfully:', imageUploadResults);
-          
-          // Extract Cloudinary public IDs for cleanup
-          const publicIdsToDelete: string[] = [];
-          
-          customizations.forEach(customization => {
-            [customization.originalImageUrl, customization.croppedImageUrl, customization.renderedImageUrl].forEach(url => {
-              const publicId = extractCloudinaryPublicId(url);
-              if (publicId) {
-                publicIdsToDelete.push(publicId);
-              }
-            });
-          });
-          
-          // Clean up Cloudinary images
-          if (publicIdsToDelete.length > 0) {
-            console.log('Cleaning up Cloudinary images...');
-            const cleanupResponse = await fetch(`${req.nextUrl.origin}/api/cleanup-cloudinary`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ publicIds: publicIdsToDelete }),
-            });
-            
-            if (cleanupResponse.ok) {
-              cloudinaryCleanupResults = await cleanupResponse.json();
-              console.log('Cloudinary cleanup completed:', cloudinaryCleanupResults);
-            } else {
-              console.error('Failed to cleanup Cloudinary images:', await cleanupResponse.text());
-            }
-          }
-        } else {
-          console.error('Failed to upload images to Shopify:', await uploadResponse.text());
-        }
-      } catch (error) {
-        console.error('Error processing customization images:', error);
-      }
-    }
-    
-    // Return success response
-    return NextResponse.json({
-      success: true,
-      order: {
-        id: order.id,
-        order_number: order.order_number || order.name,
-        total_price: order.total_price,
-        currency: order.currency,
-        created_at: order.created_at,
-        financial_status: order.financial_status,
-        fulfillment_status: order.fulfillment_status,
+    // Create the order in Shopify
+    const response = await fetch(`https://${shopifyDomain}/admin/api/2024-01/orders.json`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken,
       },
-      imageUpload: imageUploadResults,
-      cloudinaryCleanup: cloudinaryCleanupResults,
+      body: JSON.stringify(shopifyOrderData),
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Shopify order creation error:', errorData);
+      throw new Error(`Shopify API error: ${response.status} ${JSON.stringify(errorData)}`);
+    }
+
+    const result = await response.json();
+    return result.order;
   } catch (error) {
-    console.error("Order creation error:", error);
-    return NextResponse.json(
-      {
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
+    console.error('Error creating Shopify order:', error);
+    throw error;
   }
 }
 
-// Helper function to extract Cloudinary public ID from URL
-function extractCloudinaryPublicId(url: string): string {
+// Create shipment in ShipMozo
+async function createShipMozoShipment(order: any, apiKey: string) {
   try {
-    const urlParts = url.split('/');
-    const uploadIndex = urlParts.findIndex(part => part === 'upload');
-    if (uploadIndex !== -1 && uploadIndex + 2 < urlParts.length) {
-      // Get the part after version (v1234567890)
-      const pathAfterVersion = urlParts.slice(uploadIndex + 2).join('/');
-      // Remove file extension
-      return pathAfterVersion.replace(/\.[^/.]+$/, '');
+    // Format shipment data for ShipMozo API
+    const shipmentData = {
+      order_id: order.id,
+      order_number: order.name,
+      shipping_address: {
+        name: `${order.shipping_address.first_name} ${order.shipping_address.last_name}`,
+        address1: order.shipping_address.address1,
+        address2: order.shipping_address.address2 || '',
+        city: order.shipping_address.city,
+        state: order.shipping_address.province,
+        pincode: order.shipping_address.zip,
+        country: order.shipping_address.country,
+        phone: order.shipping_address.phone,
+        email: order.email,
+      },
+      items: order.line_items.map((item: any) => ({
+        name: item.name,
+        sku: item.sku || '',
+        quantity: item.quantity,
+        price: item.price,
+      })),
+      payment_method: order.note?.includes('COD') ? 'cod' : 'prepaid',
+      total_amount: parseFloat(order.total_price),
+    };
+
+    // Create shipment in ShipMozo
+    const response = await fetch('https://api.shipmozo.com/v1/shipments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(shipmentData),
+    });
+
+    if (!response.ok) {
+      console.error('ShipMozo API error:', response.status);
+      return null;
     }
-    return '';
+
+    const result = await response.json();
+    return {
+      id: result.id,
+      tracking_number: result.tracking_number,
+      tracking_url: result.tracking_url,
+      label_url: result.label_url,
+      status: result.status,
+    };
   } catch (error) {
-    console.error('Error extracting Cloudinary public ID:', error);
-    return '';
+    console.error('Error creating ShipMozo shipment:', error);
+    return null;
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCustomerStore } from '@/lib/customer-store';
 import { useCartStore } from '@/lib/store';
@@ -11,11 +11,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import Link from 'next/link';
-import { ShoppingBag, ArrowLeft, CreditCard, Truck, Shield, Loader2, Plus, MapPin, AlertCircle } from 'lucide-react';
+import { ShoppingBag, ArrowLeft, CreditCard, Truck, Shield, Loader2, Plus, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import toast from 'react-hot-toast';
 import { EmailAuthModal } from '@/components/auth/EmailAuthModal';
-import RazorpayPayment from '@/components/checkout/RazorpayPayment';
 
 interface CheckoutFormData {
   email: string;
@@ -69,12 +68,9 @@ export default function CheckoutPage() {
     country: 'India',
     phone: '',
     saveInfo: true,
-    paymentMethod: 'razorpay', // Default to Razorpay
+    paymentMethod: 'cod',
     billingAddressSame: true,
   });
-
-  const [paymentProcessing, setPaymentProcessing] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const indianStates = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -237,158 +233,194 @@ export default function CheckoutPage() {
     return true;
   };
 
-  // Prepare order data for Shopify
-  const prepareOrderData = useCallback(() => {
-    return {
-      email: formData.email,
-      shipping_address: {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        address1: formData.address,
-        address2: formData.apartment,
-        city: formData.city,
-        province: formData.state,
-        zip: formData.pinCode,
-        country: formData.country,
-        phone: formData.phone,
-      },
-      billing_address: formData.billingAddressSame ? {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        address1: formData.address,
-        address2: formData.apartment,
-        city: formData.city,
-        province: formData.state,
-        zip: formData.pinCode,
-        country: formData.country,
-        phone: formData.phone,
-      } : null,
-      line_items: items.map(item => ({
-        variant_id: item.variantId.includes('gid://shopify/ProductVariant/') 
-          ? item.variantId.replace('gid://shopify/ProductVariant/', '')
-          : item.variantId,
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      total_price: total.toFixed(2),
-      subtotal_price: subtotal.toFixed(2),
-      total_tax: tax.toFixed(2),
-      shipping_lines: shipping > 0 ? [{
-        title: 'Standard Shipping',
-        price: shipping.toFixed(2),
-      }] : [],
-      payment_method: formData.paymentMethod,
-      save_address: formData.saveInfo && showNewAddressForm,
-    };
-  }, [formData, items, total, subtotal, tax, shipping, showNewAddressForm]);
-
-  // Handle Razorpay payment success
-  const handlePaymentSuccess = async (paymentDetails: any) => {
-    setPaymentProcessing(true);
-    setPaymentError(null);
-    
+  // Function to handle Razorpay payment
+  const handleRazorpayPayment = async (orderData: any) => {
     try {
-      // Verify payment and create order
-      const response = await fetch('/api/payment/razorpay/verify', {
+      // Create Razorpay order
+      const razorpayResponse = await fetch('/api/payment/razorpay/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...paymentDetails,
-          orderData: prepareOrderData(),
+          amount: Math.round(total * 100), // Convert to paisa
+          currency: 'INR',
         }),
       });
 
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        toast.success('Payment successful! Order placed.');
-        clearCart();
-        
-        // Redirect to success page with order details
-        const params = new URLSearchParams({
-          order_id: result.order.id.toString(),
-          order_number: result.order.order_number,
-          total_price: result.order.total_price,
-          currency: result.order.currency,
-          payment_id: result.order.payment_id
-        });
-        router.push(`/checkout/success?${params.toString()}`);
-      } else {
-        console.error('Payment verification failed:', result);
-        throw new Error(result.error || result.details || 'Payment verification failed');
+      if (!razorpayResponse.ok) {
+        const errorData = await razorpayResponse.json();
+        throw new Error(errorData.error || 'Failed to create payment order');
       }
+
+      const razorpayOrder = await razorpayResponse.json();
+
+      // Load Razorpay script if not already loaded
+      if (!(window as any).Razorpay) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Failed to load Razorpay SDK'));
+          document.body.appendChild(script);
+        });
+      }
+
+      // Initialize Razorpay payment
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        name: 'Your Store Name',
+        description: 'Purchase from Your Store',
+        order_id: razorpayOrder.id,
+        prefill: {
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+          contact: formData.phone,
+        },
+        theme: {
+          color: '#3B82F6', // Blue color
+        },
+        handler: async function (response: any) {
+          // Verify payment with server
+          const verifyResponse = await fetch('/api/payment/razorpay/verify-payment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+
+          if (!verifyResponse.ok) {
+            throw new Error('Payment verification failed');
+          }
+
+          const verifyResult = await verifyResponse.json();
+
+          // Add payment details to order data
+          orderData.payment_details = {
+            payment_id: response.razorpay_payment_id,
+            order_id: response.razorpay_order_id,
+            signature: response.razorpay_signature,
+            method: verifyResult.payment.method,
+          };
+
+          // Create order in Shopify
+          await createShopifyOrder(orderData);
+        },
+      };
+
+      const razorpay = new (window as any).Razorpay(options);
+      razorpay.open();
+
+      // Handle Razorpay modal close
+      razorpay.on('payment.failed', function (response: any) {
+        throw new Error(response.error.description || 'Payment failed');
+      });
+
+      return true;
     } catch (error) {
-      console.error('Payment processing error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to process payment. Please try again.';
-      setPaymentError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setPaymentProcessing(false);
+      console.error('Razorpay payment error:', error);
+      throw error;
     }
   };
 
-  // Handle Razorpay payment error
-  const handlePaymentError = (error: any) => {
-    console.error('Payment failed:', error);
-    const errorMessage = error.description || 'Payment failed. Please try again.';
-    setPaymentError(errorMessage);
-    toast.error(errorMessage);
+  // Function to create Shopify order
+  const createShopifyOrder = async (orderData: any) => {
+    const response = await fetch('/api/create-order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(orderData),
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      toast.success('Order placed successfully!');
+      clearCart();
+      
+      // Redirect to success page with order details
+      const params = new URLSearchParams({
+        order_id: result.order.id.toString(),
+        order_number: result.order.order_number,
+        total_price: result.order.total_price,
+        currency: result.order.currency
+      });
+      router.push(`/checkout/success?${params.toString()}`);
+    } else {
+      console.error('Order creation failed:', result);
+      throw new Error(result.error || result.details || 'Failed to create order');
+    }
   };
 
-  // Handle COD order placement
-  const handleCodOrder = async () => {
+  const handleCompleteOrder = async () => {
     if (!validateForm()) return;
 
     setIsLoading(true);
     try {
-      const orderData = prepareOrderData();
-      
-      const response = await fetch('/api/create-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Prepare order data for Shopify
+      const orderData = {
+        email: formData.email,
+        shipping_address: {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          address1: formData.address,
+          address2: formData.apartment,
+          city: formData.city,
+          province: formData.state,
+          zip: formData.pinCode,
+          country: formData.country,
+          phone: formData.phone,
         },
-        body: JSON.stringify(orderData),
-      });
+        billing_address: formData.billingAddressSame ? {
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          address1: formData.address,
+          address2: formData.apartment,
+          city: formData.city,
+          province: formData.state,
+          zip: formData.pinCode,
+          country: formData.country,
+          phone: formData.phone,
+        } : null,
+        line_items: items.map(item => ({
+          variant_id: item.variantId.includes('gid://shopify/ProductVariant/') 
+            ? item.variantId.replace('gid://shopify/ProductVariant/', '')
+            : item.variantId,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        total_price: total.toFixed(2),
+        subtotal_price: subtotal.toFixed(2),
+        total_tax: tax.toFixed(2),
+        shipping_lines: shipping > 0 ? [{
+          title: 'Standard Shipping',
+          price: shipping.toFixed(2),
+        }] : [],
+        payment_method: formData.paymentMethod,
+        save_address: formData.saveInfo && showNewAddressForm,
+      };
 
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        toast.success('Order placed successfully!');
-        clearCart();
-        
-        // Redirect to success page with order details
-        const params = new URLSearchParams({
-          order_id: result.order.id.toString(),
-          order_number: result.order.order_number,
-          total_price: result.order.total_price,
-          currency: result.order.currency
-        });
-        router.push(`/checkout/success?${params.toString()}`);
+      // Handle payment based on selected method
+      if (formData.paymentMethod === 'razorpay') {
+        // For Razorpay, we initiate payment first
+        await handleRazorpayPayment(orderData);
       } else {
-        console.error('Order creation failed:', result);
-        throw new Error(result.error || result.details || 'Failed to create order');
+        // For COD, create order directly
+        await createShopifyOrder(orderData);
       }
     } catch (error) {
       console.error('Order creation error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to place order. Please try again.';
       toast.error(errorMessage);
-    } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Main checkout handler based on payment method
-  const handleCompleteOrder = async () => {
-    if (!validateForm()) return;
-
-    if (formData.paymentMethod === 'cod') {
-      await handleCodOrder();
-    } else {
-      // For Razorpay, the payment is initiated by the RazorpayPayment component
-      // We don't need to do anything here
     }
   };
 
@@ -652,30 +684,19 @@ export default function CheckoutPage() {
               >
                 <div className="border rounded-lg p-4">
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="razorpay" id="razorpay" />
-                    <Label htmlFor="razorpay" className="flex-1">
-                      <div className="flex items-center justify-between w-full">
-                        <span>Credit/Debit Card, UPI, Wallets</span>
-                        <span className="font-semibold text-blue-600">Razorpay</span>
-                      </div>
-                    </Label>
+                    <RadioGroupItem value="cod" id="cod" />
+                    <Label htmlFor="cod" className="flex-1">Cash on Delivery (COD)</Label>
                   </div>
                 </div>
                 
                 <div className="border rounded-lg p-4">
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="cod" id="cod" />
-                    <Label htmlFor="cod" className="flex-1">Cash on Delivery (COD)</Label>
+                    <RadioGroupItem value="razorpay" id="razorpay" />
+                    <Label htmlFor="razorpay" className="flex-1">Pay with Card/UPI/Wallet</Label>
+                    <CreditCard className="h-4 w-4" />
                   </div>
                 </div>
               </RadioGroup>
-              
-              {paymentError && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start">
-                  <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-                  <div>{paymentError}</div>
-                </div>
-              )}
             </div>
 
             {/* Billing Address */}
@@ -700,36 +721,21 @@ export default function CheckoutPage() {
             </div>
 
             {/* Complete Order Button */}
-            {formData.paymentMethod === 'razorpay' ? (
-              <RazorpayPayment
-                amount={total}
-                currency="INR"
-                customerName={`${formData.firstName} ${formData.lastName}`}
-                customerEmail={formData.email}
-                customerPhone={formData.phone}
-                onSuccess={handlePaymentSuccess}
-                onError={handlePaymentError}
-                disabled={!validateForm() || paymentProcessing}
-                buttonText="Pay & Complete Order"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold"
-              />
-            ) : (
-              <Button
-                onClick={handleCompleteOrder}
-                disabled={isLoading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold"
-                size="lg"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  `Complete order`
-                )}
-              </Button>
-            )}
+            <Button
+              onClick={handleCompleteOrder}
+              disabled={isLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold"
+              size="lg"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                `Complete order`
+              )}
+            </Button>
 
             {/* Footer Links */}
             <div className="flex flex-wrap gap-4 text-sm text-blue-600">
