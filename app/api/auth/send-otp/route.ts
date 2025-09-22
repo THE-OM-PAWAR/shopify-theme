@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user exists in Shopify using Admin API
-    const isNewUser = await checkIfUserExists(email);
+    const userExists = await checkIfUserExists(email);
 
     // Generate a 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       email,
       otp,
       expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
-      isNewUser: !isNewUser, // Invert the result since we want to know if it's a new user
+      isNewUser: !userExists, // isNewUser is true if user doesn't exist in Shopify
     });
 
     // Send OTP via Shopify Admin API
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       success: true, 
       message: 'OTP sent successfully', 
       sessionId,
-      isNewUser: !isNewUser
+      isNewUser: !userExists // isNewUser is true if user doesn't exist in Shopify
     });
   } catch (error) {
     console.error('Error sending OTP:', error);

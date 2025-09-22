@@ -22,12 +22,14 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 400 });
     }
+    // Store the isNewUser flag before deleting the session
+    const isNewUser = session.isNewUser;
 
     // OTP is valid, delete session
     OTPStore.delete(sessionId);
 
     // If existing user, fetch customer data from Shopify
-    if (!session.isNewUser) {
+    if (!isNewUser) {
       // Get customer data from Shopify Admin API
       const customer = await getCustomerByEmail(email);
       

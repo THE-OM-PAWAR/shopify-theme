@@ -5,6 +5,7 @@ import { ShopifyProduct, ShopifyProductVariant } from '@/lib/types';
 import { useCartStore } from '@/lib/store';
 import { useCustomizationStore } from '@/lib/customization-store';
 import ProductImages from '@/components/product/ProductImages';
+import RecommendedProducts from '@/components/product/RecommendedProducts';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
 
@@ -351,6 +352,12 @@ export default function ProductClient({ product }: ProductClientProps) {
           </div>
         </div>
       </div>
+
+      {/* Recommended Products */}
+      <RecommendedProducts 
+        currentProductId={product.id}
+        currentProductTitle={product.title}
+      />
     </div>
   );
 }
