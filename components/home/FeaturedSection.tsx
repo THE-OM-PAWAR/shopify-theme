@@ -1,7 +1,7 @@
 'use client';
 
 import { ShopifyCollection } from '@/lib/types';
-import ProductGrid from '@/components/product/ProductGrid';
+import ProductSlider from '@/components/product/ProductSlider';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import Link from 'next/link';
@@ -42,8 +42,8 @@ export default function FeaturedSection({ collections }: FeaturedSectionProps) {
                   </Button>
                 </div>
                 
-                {/* Products Grid */}
-                <ProductGrid products={products.slice(0, 4)} />
+                {/* Products Slider */}
+                <ProductSlider products={products.slice(0, 8)} />
               </div>
             );
           })}

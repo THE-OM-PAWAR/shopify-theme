@@ -5,10 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Mail, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useCustomerStore } from '@/lib/customer-store';
 
 export default function NewsletterSection() {
   const [email, setEmail] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const { isAuthenticated } = useCustomerStore();
+
+  // Don't render newsletter section for logged-in users
+  if (isAuthenticated) {
+    return null;
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

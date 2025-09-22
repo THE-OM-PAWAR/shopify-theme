@@ -711,10 +711,11 @@ export default function ImageCustomizationModal({
             {/* Controls Section */}
             <div className="w-full lg:w-full border-t lg:border-t-0 lg:border-l border-gray-100 bg-white">
               <div className="p-6 space-y-6">
-                {uploadedImage ? (
-                  <div className="flex flex-row gap-3 items-center">
+                {uploadedImage ? ( <div>
+                  <div className="flex flex-col gap-3 items-center">
                     {/* Rotation Control */}
-                    <div className="space-y-3 w-full ">
+                    <div className="space-y-3 w-full">
+                      {/* Rotation Control */}
                       <div className="flex items-center justify-between">
                         <Label className="text-sm font-medium text-gray-700">Rotation</Label>
                         <span className="text-sm text-gray-500">{imageState.rotation}°</span>
@@ -728,12 +729,30 @@ export default function ImageCustomizationModal({
                         className="w-full"
                       />
                     </div>
+                    <div className="space-y-3 w-full">
+                      {/* Scale Control */}
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-gray-700">Scale</Label>
+                        <span className="text-sm text-gray-500">{(imageState.scale * 100).toFixed(0)}%</span>
+                      </div>
+                      <Slider
+                        value={[imageState.scale]}
+                        onValueChange={([newScale]) => {
+                          setImageState(prev => ({
+                            ...prev,
+                            scale: Math.max(0.1, Math.min(newScale, 3)),
+                          }));
+                        }}
+                        min={0.1}
+                        max={3}
+                        step={0.01}
+                        className="w-full"
+                      />
+                    </div>
 
                     {/* Reset Button */}
-                    <Button variant="outline" onClick={handleReset} className="w-min mt-2" size="sm">
-                      <RotateCcw className="h-4 w-4 " />
-                    </Button>
                   </div>
+                 </div>
                 ) : ("")}
 
                 {/* Frame Load Error Warning */}
@@ -753,9 +772,14 @@ export default function ImageCustomizationModal({
                   <Button variant="secondary" onClick={handleSkip} className="flex-1" size="sm">
                     Skip
                   </Button>
+                
                   <Button variant="outline" onClick={onClose} className="flex-1" size="sm">
                     Cancel
                   </Button>
+                  
+                  <Button variant="outline" onClick={handleReset} className="w-min " size="sm">
+                      <RotateCcw className="h-4 w-4 mr-2" /> Reset
+                  </Button> 
                   <Button 
                     onClick={handleSave} 
                     disabled={!uploadedImage || isUploading}
@@ -765,6 +789,7 @@ export default function ImageCustomizationModal({
                     <Save className="h-4 w-4 mr-2" />
                     {isUploading ? 'Saving...' : 'Save'}
                   </Button>
+           
                 </div>
               </div>
             </div>

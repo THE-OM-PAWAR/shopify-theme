@@ -88,14 +88,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               )}
             </div>
 
-            {/* Like Button */}
-            <button
-              onClick={handleLikeClick}
-              className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur-sm hover:bg-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 shadow-lg"
-            >
-              <Heart className={`h-5 w-5 transition-colors ${isLiked ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} />
-            </button>
-            
+
             {/* Hover overlay removed to avoid covering card click and buttons */}
           </div>
           
