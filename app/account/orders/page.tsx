@@ -217,10 +217,17 @@ export default function OrdersPage() {
                 
                 <div className="bg-gray-50 px-4 py-4 border-t flex justify-between items-center">
                   <span className="font-medium">Total</span>
-                  <span className="font-bold">
-                    {order.currencyCode === 'INR' ? '₹' : order.currencyCode}
-                    {parseFloat(order.totalPrice).toFixed(2)}
-                  </span>
+                  <div className="flex items-center space-x-4">
+                    <span className="font-bold">
+                      {order.currencyCode === 'INR' ? '₹' : order.currencyCode}
+                      {parseFloat(order.totalPrice).toFixed(2)}
+                    </span>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={`/orders/${order.id}`}>
+                        View Details
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
             );

@@ -237,6 +237,11 @@ export default function OrderTrackingPage() {
                 </div>
                 
                 <div className="flex items-center space-x-2">
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/orders/${trackingDetails.order.id}`}>
+                      View Order Details
+                    </Link>
+                  </Button>
                   {trackingDetails.order.tracking?.tracking_url && (
                     <a 
                       href={trackingDetails.order.tracking.tracking_url} 
