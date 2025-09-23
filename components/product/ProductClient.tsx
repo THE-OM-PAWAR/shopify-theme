@@ -352,12 +352,6 @@ export default function ProductClient({ product }: ProductClientProps) {
           </div>
         </div>
       </div>
-
-      {/* Recommended Products */}
-      <RecommendedProducts 
-        currentProductId={product.id}
-        currentProductTitle={product.title}
-      />
     </div>
   );
 }
