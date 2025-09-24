@@ -26,6 +26,7 @@ export default function FramePreview({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hydratedCustomization, setHydratedCustomization] = useState<any>(null);
+  const [currentFraction, setCurrentFraction] = useState<number>(0.5);
   const { getCustomization, _hasHydrated } = useCustomizationStore();
 
   // Update customization data after hydration
@@ -37,7 +38,7 @@ export default function FramePreview({
 
   useEffect(() => {
     drawPreview();
-  }, [frameCoverUrl, variantImageUrl, hydratedCustomization, width, height]);
+  }, [frameCoverUrl, variantImageUrl, hydratedCustomization, width, height, frameSizeMeta, variantIndex]);
 
   const loadImage = (src: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
@@ -64,7 +65,8 @@ export default function FramePreview({
       canvas.width = width;
       canvas.height = height;
 
-      // Clear canvas with white background
+      // Clear canvas completely and set white background
+      ctx.clearRect(0, 0, width, height);
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, width, height);
 
@@ -106,49 +108,90 @@ export default function FramePreview({
           }
           return undefined;
         };
+        
         let value: number | undefined;
+        
         try {
           if (frameSizeMeta !== undefined && frameSizeMeta !== null) {
-            let meta: any = frameSizeMeta as any;
+            let meta: any = frameSizeMeta;
+            
+            // Handle metafield object structure
             if (typeof meta === 'object' && meta && 'value' in meta) {
-              meta = (meta as any).value;
+              meta = meta.value;
             }
+            
+            // Handle array data (already parsed from ProductImages.tsx)
             if (Array.isArray(meta)) {
               const idx = Math.max(0, Math.min(variantIndex, meta.length - 1));
               value = coerce(meta[idx]);
-            } else if (typeof meta === 'string') {
+              console.log(`Using array index ${idx} of ${meta.length} items:`, meta[idx], '->', value);
+            } 
+            // Handle string data (fallback for unparsed strings)
+            else if (typeof meta === 'string') {
               const trimmed = meta.trim();
               if (trimmed.startsWith('[')) {
                 const arr = JSON.parse(trimmed);
                 if (Array.isArray(arr)) {
                   const idx = Math.max(0, Math.min(variantIndex, arr.length - 1));
                   value = coerce(arr[idx]);
+                  console.log(`Parsed JSON array index ${idx}:`, arr[idx], '->', value);
                 }
               } else if (trimmed.includes(',')) {
-                const parts = trimmed.split(',');
+                const parts = trimmed.split(',').map(p => p.trim());
                 const idx = Math.max(0, Math.min(variantIndex, parts.length - 1));
                 value = coerce(parts[idx]);
+                console.log(`Comma-separated index ${idx}:`, parts[idx], '->', value);
               } else {
                 value = coerce(trimmed);
+                console.log('Single string value:', trimmed, '->', value);
               }
-            } else if (typeof meta === 'number') {
+            } 
+            // Handle number data
+            else if (typeof meta === 'number') {
               value = meta;
+              console.log('Number value:', meta);
             }
           }
-          console.log("value:", value);
         } catch (e) {
           console.warn('Failed to parse frameSizeMeta:', e);
         }
-        if (value === undefined || Number.isNaN(value)) return 0.5; 
-        const fraction = value > 1 ? value / 100 : value;
-        return clamp(fraction);
+        
+        // Default fallback
+        if (value === undefined || Number.isNaN(value)) {
+          console.log('Using default fraction 0.5');
+          return 0.5;
+        }
+        
+        // Handle different value formats
+        let fraction: number;
+        if (value > 1) {
+          // Assume percentage (e.g., 50 -> 0.5)
+          fraction = value / 100;
+        } else if (value < 0.1) {
+          // Assume very small decimal, might be percentage (e.g., 0.05 -> 0.5)
+          fraction = value * 10;
+        } else {
+          // Direct decimal value
+          fraction = value;
+        }
+        
+        const clamped = clamp(fraction);
+        console.log(`Final fraction: ${value} -> ${fraction} -> ${clamped}`);
+        return clamped;
       };
       const fraction = resolveSizeFraction();
+      setCurrentFraction(fraction);
       console.log("fraction", fraction, "frameSizeMeta:", frameSizeMeta, "variantIndex:", variantIndex);
+      
+      // Calculate precise box dimensions and positioning
       const boxW = Math.floor(width * fraction);
       const boxH = Math.floor(height * fraction); 
-      const boxX = Math.floor((width - boxW) / 4);
+      
+      // Center the box more precisely
+      const boxX = Math.floor((width - boxW) / 3);
       const boxY = Math.floor((height - boxH) / 3);
+      
+      console.log(`Canvas: ${width}x${height}, Box: ${boxW}x${boxH} at (${boxX}, ${boxY})`);
 
       // Layer 2: User's Cropped Image (object-fit cover inside box, overflow hidden)
       if (hydratedCustomization?.croppedImageUrl) {
@@ -247,6 +290,7 @@ export default function FramePreview({
   return (
     <div className={`relative ${className}`}>
       <canvas
+        key={`${productId}-${variantIndex}-${frameSizeMeta}`}
         ref={canvasRef}
         width={width}
         height={height}
@@ -265,6 +309,11 @@ export default function FramePreview({
           Customized
         </div>
       )}
+      
+      {/* Debug info for frame size */}
+      <div className="absolute top-2 right-2 bg-gray-800 text-white text-xs px-2 py-1 rounded-full">
+        V{variantIndex}: {currentFraction.toFixed(3)}
+      </div>
     </div>
   );
 }

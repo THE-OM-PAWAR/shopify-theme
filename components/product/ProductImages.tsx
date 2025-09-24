@@ -66,46 +66,35 @@ export default function ProductImages({
     (metafield) => metafield.namespace === 'custom' && metafield.key === 'frame_size'
   );
   
-  // Extract frame size value
+  // Extract frame size value and parse it properly
   const frameSizeValue = frameSizeMetafield?.value;
   
-  console.log('=== METAFIELD DEBUG ===');
-  console.log('Total valid metafields:', validMetafields.length);
-  if (validMetafields.length > 0) {
-    validMetafields.forEach((metafield, index) => {
-      console.log(`Valid Metafield ${index}:`, {
-        namespace: metafield.namespace,
-        key: metafield.key,
-        value: metafield.value,
-        hasReference: !!metafield.reference
-      });
-    });
-  }
-  
-  // Specific debugging for frame_size
-  console.log('=== FRAME SIZE DEBUG ===');
-  console.log('frameSizeMetafield:', frameSizeMetafield);
-  console.log('frameSizeValue:', frameSizeValue);
-  console.log('frameSizeValue type:', typeof frameSizeValue);
-  if (frameSizeValue) {
-    console.log('frameSizeValue length:', frameSizeValue.length);
+  // Parse frame size value if it's a JSON string
+  const parseFrameSizeValue = (value: string | undefined): any => {
+    if (!value) return null;
+    
     try {
-      console.log('frameSizeValue parsed:', JSON.parse(frameSizeValue));
+      // Try to parse as JSON first
+      const parsed = JSON.parse(value);
+      console.log('Parsed frame size value:', parsed);
+      return parsed;
     } catch (e) {
-      console.log('frameSizeValue could not be parsed as JSON:', e);
+      // If not JSON, return the string as is
+      console.log('Frame size value is not JSON, using as string:', value);
+      return value;
     }
-  }
-  console.log('=== END FRAME SIZE DEBUG ===');
+  };
   
   const frameCoverUrl = frameCoverMetafield?.reference?.image?.url || frameCoverMetafield?.value;
   
-  // Ensure frameSizeValue is properly handled
-  const finalFrameSizeValue = frameSizeValue || null;
+  // Parse the frame size value properly
+  const finalFrameSizeValue = parseFrameSizeValue(frameSizeValue);
   console.log('Final frameSizeValue being passed to FramePreview:', finalFrameSizeValue);
   
   // Calculate the correct variant index for frame size
   const getVariantIndex = (): number => {
     if (!selectedVariant || !allVariants || allVariants.length === 0) {
+      console.log('No selected variant or allVariants, using index 0');
       return 0;
     }
     
@@ -217,7 +206,7 @@ export default function ProductImages({
                     frameCoverUrl={frameCoverUrl}
                     variantImageUrl={selectedVariant?.image?.url}
                     frameSizeMeta={finalFrameSizeValue}
-                    variantIndex={0}
+                    variantIndex={currentVariantIndex}
                     width={80}
                     height={120}
                     className="max-w-full max-h-full"
