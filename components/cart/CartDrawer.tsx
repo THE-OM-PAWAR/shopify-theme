@@ -2,6 +2,7 @@
 
 import { useCartStore } from '@/lib/store';
 import { useCustomizationStore } from '@/lib/customization-store';
+import { collectProductImageInfo, createImageSummary } from '@/lib/order-utils';
 import { X, Plus, Minus, ShoppingBag } from 'lucide-react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -155,6 +156,35 @@ export default function CartDrawer() {
             </div>
           )}
         </div>
+
+        {/* Customization Preview */}
+        {_hasHydrated && items.length > 0 && customizationHasHydrated && (() => {
+          const imageInfo = collectProductImageInfo(items, getCustomization);
+          const hasCustomizations = imageInfo.some(info => info.customizedImageUrl || info.userUploadedImageUrl);
+          
+          if (!hasCustomizations) return null;
+          
+          return (
+            <div className="border-t p-4 bg-blue-50">
+              <h3 className="font-medium text-sm text-blue-900 mb-2">Customization Preview</h3>
+              <div className="text-xs text-blue-700 space-y-1">
+                {imageInfo.map((info, index) => {
+                  if (!info.customizedImageUrl && !info.userUploadedImageUrl) return null;
+                  
+                  return (
+                    <div key={index} className="flex items-center justify-between">
+                      <span className="truncate">{info.productTitle}</span>
+                      <span className="text-blue-600 font-medium">Customized</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-blue-600 mt-2">
+                Custom images will be included in your order notes
+              </p>
+            </div>
+          );
+        })()}
 
         {/* Footer */}
         {_hasHydrated && items.length > 0 && (

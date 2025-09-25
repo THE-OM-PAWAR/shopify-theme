@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCustomerStore } from '@/lib/customer-store';
 import { useCartStore } from '@/lib/store';
+import { useCustomizationStore } from '@/lib/customization-store';
+import { collectProductImageInfo, formatImageInfoForOrderNotes, createImageSummary } from '@/lib/order-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,6 +51,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { customer, isAuthenticated, _hasHydrated } = useCustomerStore();
   const { items, totalPrice, currencyCode, clearCart } = useCartStore();
+  const { getCustomization, _hasHydrated: customizationHasHydrated } = useCustomizationStore();
   
   const [isLoading, setIsLoading] = useState(false);
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -344,14 +347,14 @@ export default function CheckoutPage() {
 
     if (response.ok && result.success) {
       toast.success('Order placed successfully!');
-      clearCart();
       
       // Redirect to success page with order details
       const params = new URLSearchParams({
         order_id: result.order.id.toString(),
         order_number: result.order.order_number,
         total_price: result.order.total_price,
-        currency: result.order.currency
+        currency: result.order.currency,
+        payment_method: formData.paymentMethod
       });
       router.push(`/checkout/success?${params.toString()}`);
     } else {
@@ -365,6 +368,11 @@ export default function CheckoutPage() {
 
     setIsLoading(true);
     try {
+      // Collect image information from cart items and customizations
+      const imageInfo = collectProductImageInfo(items, getCustomization);
+      const imageNotes = formatImageInfoForOrderNotes(imageInfo);
+      const imageSummary = createImageSummary(imageInfo);
+
       // Prepare order data for Shopify
       const orderData = {
         email: formData.email,
@@ -406,6 +414,10 @@ export default function CheckoutPage() {
         }] : [],
         payment_method: formData.paymentMethod,
         save_address: formData.saveInfo && showNewAddressForm,
+        // Add image information
+        image_info: imageInfo,
+        image_notes: imageNotes,
+        image_summary: imageSummary,
       };
 
       // Handle payment based on selected method
@@ -752,39 +764,52 @@ export default function CheckoutPage() {
             
             {/* Cart Items */}
             <div className="space-y-4 mb-6">
-              {items.map((item) => (
-                <div key={item.id} className="flex items-start space-x-4">
-                  <div className="relative">
-                    {item.image && (
-                      <div className="w-16 h-16 relative rounded-lg overflow-hidden bg-gray-100">
-                        <Image
-                          src={item.image}
-                          alt={item.title}
-                          fill
-                          className="object-cover"
-                          sizes="64px"
-                        />
+              {items.map((item) => {
+                const customization = getCustomization(item.productId);
+                const displayImage = customization?.renderedImageUrl || item.image;
+                
+                return (
+                  <div key={item.id} className="flex items-start space-x-4">
+                    <div className="relative">
+                      {displayImage && (
+                        <div className="w-16 h-16 relative rounded-lg overflow-hidden bg-gray-100">
+                          <Image
+                            src={displayImage}
+                            alt={item.title}
+                            fill
+                            className="object-cover"
+                            sizes="64px"
+                          />
+                        </div>
+                      )}
+                      <div className="absolute -top-2 -right-2 bg-gray-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {item.quantity}
                       </div>
-                    )}
-                    <div className="absolute -top-2 -right-2 bg-gray-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {item.quantity}
+                      {customization && (
+                        <div className="absolute -bottom-1 -left-1 bg-blue-600 text-white text-xs px-1 py-0.5 rounded">
+                          Custom
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-sm line-clamp-2">{item.title}</h3>
+                      {item.variantTitle && (
+                        <p className="text-xs text-gray-500">{item.variantTitle}</p>
+                      )}
+                      {customization && (
+                        <p className="text-xs text-blue-600 font-medium">Customized Product</p>
+                      )}
+                    </div>
+
+                    <div className="text-right">
+                      <p className="font-semibold">
+                        ₹{(parseFloat(item.price) * item.quantity).toFixed(2)}
+                      </p>
                     </div>
                   </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm line-clamp-2">{item.title}</h3>
-                    {item.variantTitle && (
-                      <p className="text-xs text-gray-500">{item.variantTitle}</p>
-                    )}
-                  </div>
-
-                  <div className="text-right">
-                    <p className="font-semibold">
-                      ₹{(parseFloat(item.price) * item.quantity).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Pricing Breakdown */}

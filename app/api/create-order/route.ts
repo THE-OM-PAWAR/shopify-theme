@@ -1,5 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Function to format order notes with image information
+function formatOrderNote(orderData: any): string {
+  const notes: string[] = [];
+  
+  // Add payment method
+  notes.push(`Payment Method: ${orderData.payment_method || 'COD'}`);
+  
+  // Add image information if available
+  if (orderData.image_notes) {
+    notes.push('');
+    notes.push('CUSTOMIZATION IMAGES:');
+    notes.push(orderData.image_notes);
+  }
+  
+  return notes.join('\n');
+}
+
 export async function POST(request: NextRequest) {
   try {
     const orderData = await request.json();
@@ -10,26 +27,19 @@ export async function POST(request: NextRequest) {
 
     const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
     const accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
-    const shipMozoApiKey = process.env.SHIPMOZO_API_KEY;
 
     if (!shopifyDomain || !accessToken) {
       return NextResponse.json({ error: 'Shopify credentials missing' }, { status: 500 });
     }
 
-    // 1. Create order in Shopify
+    // Create order in Shopify
     const shopifyOrder = await createShopifyOrder(orderData, shopifyDomain, accessToken);
     
     if (!shopifyOrder) {
       return NextResponse.json({ error: 'Failed to create order in Shopify' }, { status: 500 });
     }
 
-    // 2. Create shipment in ShipMozo if available
-    let shipment = null;
-    if (shipMozoApiKey && shopifyOrder.id) {
-      shipment = await createShipMozoShipment(shopifyOrder, shipMozoApiKey);
-    }
-
-    // 3. Return success response with order details
+    // Return success response with order details
     return NextResponse.json({
       success: true,
       order: {
@@ -40,7 +50,6 @@ export async function POST(request: NextRequest) {
         status: shopifyOrder.financial_status,
         fulfillment_status: shopifyOrder.fulfillment_status || 'unfulfilled',
         shipping_address: shopifyOrder.shipping_address,
-        shipment: shipment,
       },
     });
   } catch (error) {
@@ -55,10 +64,15 @@ export async function POST(request: NextRequest) {
 // Create order in Shopify
 async function createShopifyOrder(orderData: any, shopifyDomain: string, accessToken: string) {
   try {
+    // Determine financial status based on payment method
+    const isCOD = orderData.payment_method === 'cod';
+    const financialStatus = isCOD ? 'pending' : 'paid';
+    
     // Format the order data for Shopify API
     const shopifyOrderData = {
       order: {
         email: orderData.email,
+        financial_status: financialStatus,
         fulfillment_status: 'unfulfilled',
         send_receipt: true,
         send_fulfillment_receipt: true,
@@ -87,12 +101,13 @@ async function createShopifyOrder(orderData: any, shopifyDomain: string, accessT
           },
         ],
         tags: 'website-order',
-        note: `Payment Method: ${orderData.payment_method || 'COD'}`,
+        note: formatOrderNote(orderData),
       },
     };
 
-    // If payment details are available, add them to the order
+    // Add transactions based on payment method
     if (orderData.payment_details) {
+      // For Razorpay payments
       (shopifyOrderData.order as any).transactions = [
         {
           kind: 'sale',
@@ -102,6 +117,20 @@ async function createShopifyOrder(orderData: any, shopifyDomain: string, accessT
           payment_details: {
             credit_card_number: 'XXXX',
             credit_card_company: 'Razorpay',
+          },
+        },
+      ];
+    } else if (isCOD) {
+      // For COD orders, add a pending transaction
+      (shopifyOrderData.order as any).transactions = [
+        {
+          kind: 'sale',
+          status: 'pending',
+          amount: orderData.total_price,
+          gateway: 'cash_on_delivery',
+          payment_details: {
+            credit_card_number: 'N/A',
+            credit_card_company: 'Cash on Delivery',
           },
         },
       ];
@@ -128,62 +157,5 @@ async function createShopifyOrder(orderData: any, shopifyDomain: string, accessT
   } catch (error) {
     console.error('Error creating Shopify order:', error);
     throw error;
-  }
-}
-
-// Create shipment in ShipMozo
-async function createShipMozoShipment(order: any, apiKey: string) {
-  try {
-    // Format shipment data for ShipMozo API
-    const shipmentData = {
-      order_id: order.id,
-      order_number: order.name,
-      shipping_address: {
-        name: `${order.shipping_address.first_name} ${order.shipping_address.last_name}`,
-        address1: order.shipping_address.address1,
-        address2: order.shipping_address.address2 || '',
-        city: order.shipping_address.city,
-        state: order.shipping_address.province,
-        pincode: order.shipping_address.zip,
-        country: order.shipping_address.country,
-        phone: order.shipping_address.phone,
-        email: order.email,
-      },
-      items: order.line_items.map((item: any) => ({
-        name: item.name,
-        sku: item.sku || '',
-        quantity: item.quantity,
-        price: item.price,
-      })),
-      payment_method: order.note?.includes('COD') ? 'cod' : 'prepaid',
-      total_amount: parseFloat(order.total_price),
-    };
-
-    // Create shipment in ShipMozo
-    const response = await fetch('https://api.shipmozo.com/v1/shipments', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(shipmentData),
-    });
-
-    if (!response.ok) {
-      console.error('ShipMozo API error:', response.status);
-      return null;
-    }
-
-    const result = await response.json();
-    return {
-      id: result.id,
-      tracking_number: result.tracking_number,
-      tracking_url: result.tracking_url,
-      label_url: result.label_url,
-      status: result.status,
-    };
-  } catch (error) {
-    console.error('Error creating ShipMozo shipment:', error);
-    return null;
   }
 }

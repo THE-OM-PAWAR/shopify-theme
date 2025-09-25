@@ -546,3 +546,27 @@ export const SEARCH_PRODUCTS_QUERY = `
     }
   }
 `;
+
+export const CREATE_PRODUCT_METAFIELD_MUTATION = `
+  mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+    metafieldsSet(metafields: $metafields) {
+      metafields {
+        id
+        namespace
+        key
+        value
+        type
+        owner {
+          ... on Product {
+            id
+            title
+          }
+        }
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;

@@ -13,19 +13,26 @@ interface OrderDetails {
   total_price: string;
   currency: string;
   created_at: string;
+  payment_method?: string;
 }
 
 export default function CheckoutSuccessPage() {
   const searchParams = useSearchParams();
-  const { clearCart } = useCartStore();
+  const { clearCart, items } = useCartStore();
   
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
+  const [isCartCleared, setIsCartCleared] = useState(false);
+  const [isPageReady, setIsPageReady] = useState(false);
 
   useEffect(() => {
+    console.log('Success page useEffect running...');
     const orderId = searchParams.get('order_id');
     const orderNumber = searchParams.get('order_number');
     const totalPrice = searchParams.get('total_price');
     const currency = searchParams.get('currency');
+    const paymentMethod = searchParams.get('payment_method');
+    
+    console.log('Order details from URL:', { orderId, orderNumber, totalPrice, currency, paymentMethod });
     
     if (orderId && orderNumber) {
       setOrderDetails({
@@ -34,16 +41,43 @@ export default function CheckoutSuccessPage() {
         total_price: totalPrice || '0',
         currency: currency || 'INR',
         created_at: new Date().toISOString(),
+        payment_method: paymentMethod || 'cod',
       });
       
-      // Clear cart on successful order
-      clearCart();
+      // Mark page as ready
+      setIsPageReady(true);
+      
+      // Clear cart only once after a longer delay to ensure page is stable
+      if (!isCartCleared && items.length > 0) {
+        const timeoutId = setTimeout(() => {
+          try {
+            clearCart();
+            setIsCartCleared(true);
+            console.log('Cart cleared successfully');
+          } catch (error) {
+            console.error('Error clearing cart:', error);
+          }
+        }, 5000); // Increased delay to 5 seconds
+        
+        // Cleanup timeout on unmount
+        return () => clearTimeout(timeoutId);
+      } else if (items.length === 0) {
+        console.log('Cart is already empty, skipping clear');
+        setIsCartCleared(true);
+      }
     } else {
       console.warn('Missing order details in URL params');
+      // If no order details, redirect to home after a delay
+      const timeoutId = setTimeout(() => {
+        window.location.href = '/';
+      }, 5000);
+      
+      // Cleanup timeout on unmount
+      return () => clearTimeout(timeoutId);
     }
-  }, [searchParams, clearCart]);
+  }, [searchParams, clearCart, isCartCleared, items.length]);
 
-  if (!orderDetails) {
+  if (!orderDetails || !isPageReady) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -91,11 +125,22 @@ export default function CheckoutSuccessPage() {
                 </div>
                 <div className="flex justify-between">
                   <span>Payment Method:</span>
-                  <span>Cash on Delivery (COD)</span>
+                  <span>
+                    {orderDetails.payment_method === 'razorpay' 
+                      ? 'Card/UPI/Wallet (Razorpay)' 
+                      : 'Cash on Delivery (COD)'
+                    }
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Status:</span>
-                  <span className="text-orange-600 font-semibold">Processing</span>
+                  <span className={`font-semibold ${
+                    orderDetails.payment_method === 'razorpay' 
+                      ? 'text-green-600' 
+                      : 'text-orange-600'
+                  }`}>
+                    {orderDetails.payment_method === 'razorpay' ? 'Paid' : 'Pending Payment'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -121,26 +166,28 @@ export default function CheckoutSuccessPage() {
             </div>
           </div>
 
-          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-8">
-            <div className="flex items-start">
-              <div className="flex-shrink-0">
-                <Package className="h-5 w-5 text-yellow-600 mt-0.5" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800">
-                  Cash on Delivery (COD) Instructions
-                </h3>
-                <div className="mt-2 text-sm text-yellow-700">
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>Please keep the exact amount ready for payment</li>
-                    <li>Our delivery partner will collect the payment upon delivery</li>
-                    <li>You can pay in cash to the delivery person</li>
-                    <li>Please verify the order before making the payment</li>
-                  </ul>
+          {orderDetails.payment_method === 'cod' && (
+            <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-8">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <Package className="h-5 w-5 text-yellow-600 mt-0.5" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-yellow-800">
+                    Cash on Delivery (COD) Instructions
+                  </h3>
+                  <div className="mt-2 text-sm text-yellow-700">
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Please keep the exact amount ready for payment</li>
+                      <li>Our delivery partner will collect the payment upon delivery</li>
+                      <li>You can pay in cash to the delivery person</li>
+                      <li>Please verify the order before making the payment</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button asChild size="lg" className="flex-1 sm:flex-none">
