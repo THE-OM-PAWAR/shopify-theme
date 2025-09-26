@@ -74,6 +74,24 @@ export const COLLECTION_PRODUCTS_QUERY = `
             id
             handle
             title
+            metafields(identifiers: [
+              {namespace: "custom", key: "frame_image"},
+              {namespace: "custom", key: "frame_cover"},
+              {namespace: "custom", key: "frame_length"},
+              {namespace: "custom", key: "frame_size"}
+            ]) {
+              namespace
+              key
+              value
+              reference {
+                ... on MediaImage {
+                  image {
+                    url
+                    altText
+                  }
+                }
+              }
+            }
             priceRange {
               minVariantPrice {
                 amount

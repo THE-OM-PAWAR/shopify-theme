@@ -13,7 +13,7 @@ async function getFeaturedCollections() {
   try {
     const response = await shopifyFetchServer({
       query: FEATURED_COLLECTIONS_QUERY,
-      variables: { first: 5 },
+      variables: { first: 7 },
     });
     return response.data?.collections?.edges || [];
   } catch (error) {
