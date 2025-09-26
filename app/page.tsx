@@ -93,12 +93,6 @@ export default async function HomePage() {
                           {collection.description}
                         </p>
                       )}
-                      <Button asChild variant="outline" className="rounded-full">
-                        <Link href={`/collections/${collection.handle}`} className="inline-flex items-center">
-                          View All {collection.title}
-                          <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                      </Button>
                     </div>
                     
                     {/* Products Slider */}
