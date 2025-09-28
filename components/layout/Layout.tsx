@@ -29,7 +29,7 @@ export default function Layout({ children }: LayoutProps) {
       <Footer/>
       <CartDrawer />
       <WhatsAppButton 
-        phoneNumber="+1234567890" 
+        phoneNumber="+919358611776" 
         message="Hi! I'm interested in your products. Can you help me?"
       />
       <Toaster
