@@ -80,9 +80,8 @@ export default function CartDrawer() {
           ) : (
             <div className="space-y-4">
               {items.map((item) => {
-                // Check if this product has customization
-                const customization = _hasHydrated && customizationHasHydrated ? getCustomization(item.productId) : null;
-                const displayImage = customization?.renderedImageUrl || item.image;
+                // Always show the original product image
+                const displayImage = item.image;
                 
                 return (
                 <div key={item.id} className="flex items-start space-x-4 p-4 border rounded-lg">
@@ -94,7 +93,7 @@ export default function CartDrawer() {
                         fill
                         sizes="64px"
                       />
-                        {customization && (
+                        {getCustomization(item.id) && (
                           <div className="absolute top-0 right-0 bg-blue-600 text-white text-xs px-1 py-0.5 rounded-bl">
                             Custom
                           </div>
@@ -107,7 +106,7 @@ export default function CartDrawer() {
                     {item.variantTitle && (
                       <p className="text-xs text-gray-500">{item.variantTitle}</p>
                     )}
-                      {customization && (
+                      {getCustomization(item.id) && (
                         <p className="text-xs text-blue-600 font-medium">Customized</p>
                       )}
                     <p className="text-gray-900 font-semibold text-sm mt-1">

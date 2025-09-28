@@ -4,6 +4,8 @@ import { ShopifyCollection } from '@/lib/types';
 import ProductSlider from '@/components/product/ProductSlider';
 import HeroBanner from '@/components/home/HeroBanner';
 import NewsletterSection from '@/components/home/NewsletterSection';
+import TestimonialSection from '@/components/home/TestimonialSection';
+import InstagramReelsSection from '@/components/home/InstagramReelsSection';
 import CollectionSlider from '@/components/collection/CollectionSlider';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -114,6 +116,12 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Instagram Reels */}
+      <InstagramReelsSection />
+
+      {/* Testimonials */}
+      <TestimonialSection />
 
       {/* Newsletter */}
       <NewsletterSection />

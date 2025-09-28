@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header';
 import { Toaster } from 'react-hot-toast';
 import { useCartStore } from '@/lib/store';
 import Footer from '@/components/layout/Footer';
+import WhatsAppButton from '@/components/common/WhatsAppButton';
 
 interface LayoutProps {
   children: React.ReactNode; 
@@ -27,6 +28,10 @@ export default function Layout({ children }: LayoutProps) {
       </main>
       <Footer/>
       <CartDrawer />
+      <WhatsAppButton 
+        phoneNumber="+1234567890" 
+        message="Hi! I'm interested in your products. Can you help me?"
+      />
       <Toaster
         position="bottom-right"
         toastOptions={{

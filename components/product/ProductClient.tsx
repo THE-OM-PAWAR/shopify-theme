@@ -45,13 +45,8 @@ export default function ProductClient({ product }: ProductClientProps) {
     if (_hasHydrated) {
       const customization = getCustomization(product.id);
       setCustomizationData(customization);
-      const customizedImages = customization ? [{
-        id: 'customized',
-        url: customization.renderedImageUrl,
-        altText: `Customized ${product.title}`,
-        width: 400,
-        height: 600
-      }] : [];
+      // Don't show customized images in the main product display
+      const customizedImages: any[] = [];
       setHydratedCustomizedImages(customizedImages);
     }
   }, [_hasHydrated, product.id, product.title, getCustomization]);

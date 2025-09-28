@@ -33,13 +33,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   // Allow customization if frame image URL exists
   const canCustomize = !!frameImageUrl;
   
-  // Check if user has customized this product
+  // Always show the original product image in the card
   useEffect(() => {
-    if (_hasHydrated) {
-      const customization = getCustomization(product.id);
-      setCurrentDisplayImage(customization?.renderedImageUrl || image?.url);
-    }
-  }, [_hasHydrated, product.id, getCustomization, image?.url]);
+    setCurrentDisplayImage(image?.url);
+  }, [image?.url]);
 
   // Clicking the card: if customizable, open customization; otherwise go to product page
 

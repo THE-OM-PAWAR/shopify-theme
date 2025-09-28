@@ -9,7 +9,8 @@ import { Slider } from '@/components/ui/slider';
 import { ShopifyProduct } from '@/lib/types';
 import { useCustomizationStore } from '@/lib/customization-store';
 import { uploadToCloudinary } from '@/lib/cloudinary';
-import { Upload, RotateCcw, Save, X, Image as ImageIcon } from 'lucide-react';
+import { compressImage, getFileSizeString, isImageFile } from '@/lib/image-compression';
+import { Upload, RotateCcw, Save, X, Image as ImageIcon, Shrink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 
@@ -63,6 +64,14 @@ export default function ImageCustomizationModal({
   const [frameImageLoadError, setFrameImageLoadError] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
   const [rotateStart, setRotateStart] = useState<{ startAngle: number; startRotation: number }>({ startAngle: 0, startRotation: 0 });
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionInfo, setCompressionInfo] = useState<{
+    originalSize: string;
+    compressedSize: string;
+    wasCompressed: boolean;
+  } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
   
   const { saveCustomization } = useCustomizationStore();
 
@@ -305,37 +314,79 @@ export default function ImageCustomizationModal({
     ctx.restore();
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setIsLoading(true);
+    // Validate file type
+    if (!isImageFile(file)) {
+      toast.error('Please select a valid image file');
+      return;
+    }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        setUploadedImage(img);
-        setImageState({
-          x: canvasDimensions.width / 2,
-          y: canvasDimensions.height / 2,
-          scale: 1,
-          rotation: 0
-        });
-        setIsLoading(false);
+    setIsLoading(true);
+    setIsCompressing(true);
+    setCompressionInfo(null);
+
+    try {
+      // Compress image if needed
+      const compressionResult = await compressImage(file, {
+        maxSizeInMB: 20,
+        quality: 0.9,
+        maxWidth: 4000,
+        maxHeight: 4000
+      });
+
+      // Update compression info
+      setCompressionInfo({
+        originalSize: getFileSizeString(compressionResult.originalSize),
+        compressedSize: getFileSizeString(compressionResult.compressedSize),
+        wasCompressed: compressionResult.wasCompressed
+      });
+
+      // Show compression feedback
+      if (compressionResult.wasCompressed) {
+        const compressionRatio = ((1 - compressionResult.compressionRatio) * 100).toFixed(1);
+        toast.success(`Image compressed by ${compressionRatio}% (${getFileSizeString(compressionResult.originalSize)} → ${getFileSizeString(compressionResult.compressedSize)})`);
+      } else {
         toast.success('Image uploaded successfully!');
+      }
+
+      // Create image from compressed blob
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          setUploadedImage(img);
+          setImageState({
+            x: canvasDimensions.width / 2,
+            y: canvasDimensions.height / 2,
+            scale: 1,
+            rotation: 0
+          });
+          setIsLoading(false);
+          setIsCompressing(false);
+        };
+        img.onerror = () => {
+          setIsLoading(false);
+          setIsCompressing(false);
+          toast.error('Failed to load compressed image');
+        };
+        img.src = e.target?.result as string;
       };
-      img.onerror = () => {
+      reader.onerror = () => {
         setIsLoading(false);
-        toast.error('Failed to load image');
+        setIsCompressing(false);
+        toast.error('Failed to read compressed file');
       };
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = () => {
+      reader.readAsDataURL(compressionResult.compressedBlob);
+
+    } catch (error) {
+      console.error('Compression error:', error);
       setIsLoading(false);
-      toast.error('Failed to read file');
-    };
-    reader.readAsDataURL(file);
+      setIsCompressing(false);
+      toast.error('Failed to process image: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
   };
 
   const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -585,9 +636,12 @@ export default function ImageCustomizationModal({
       return;
     }
 
-    setIsUploading(true);
+    setIsSaving(true);
+    setUploadProgress(0);
     
     try {
+      // Step 1: Prepare canvases (10%)
+      setUploadProgress(10);
       const originalCanvas = document.createElement('canvas');
       originalCanvas.width = uploadedImage.width;
       originalCanvas.height = uploadedImage.height;
@@ -596,16 +650,24 @@ export default function ImageCustomizationModal({
         originalCtx.drawImage(uploadedImage, 0, 0);
       }
 
+      // Step 2: Create blobs (20%)
+      setUploadProgress(20);
       const renderedBlob = await canvasToBlob(canvasRef.current);
+      setUploadProgress(30);
       const croppedBlob = await canvasToBlob(croppedCanvasRef.current);
+      setUploadProgress(40);
       const originalBlob = await canvasToBlob(originalCanvas);
 
-      const [renderedUrl, croppedUrl, originalUrl] = await Promise.all([
-        uploadToCloudinary(renderedBlob, `${product.handle}-rendered-${Date.now()}`),
-        uploadToCloudinary(croppedBlob, `${product.handle}-cropped-${Date.now()}`),
-        uploadToCloudinary(originalBlob, `${product.handle}-original-${Date.now()}`)
-      ]);
+      // Step 3: Upload to Cloudinary (40-90%)
+      setUploadProgress(50);
+      const renderedUrl = await uploadToCloudinary(renderedBlob, `${product.handle}-rendered-${Date.now()}`);
+      setUploadProgress(70);
+      const croppedUrl = await uploadToCloudinary(croppedBlob, `${product.handle}-cropped-${Date.now()}`);
+      setUploadProgress(90);
+      const originalUrl = await uploadToCloudinary(originalBlob, `${product.handle}-original-${Date.now()}`);
 
+      // Step 4: Save customization (90-100%)
+      setUploadProgress(95);
       saveCustomization(product.id, {
         originalImageUrl: originalUrl,
         renderedImageUrl: renderedUrl,
@@ -616,14 +678,20 @@ export default function ImageCustomizationModal({
         createdAt: new Date().toISOString()
       });
 
+      setUploadProgress(100);
       toast.success('Customization saved successfully!');
-      router.push(`/products/${product.handle}`);
-      onClose();
+      
+      // Small delay to show 100% completion
+      setTimeout(() => {
+        router.push(`/products/${product.handle}`);
+        onClose();
+      }, 500);
     } catch (error) {
       console.error('Save error:', error);
       toast.error('Failed to save customization: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
-      setIsUploading(false);
+      setIsSaving(false);
+      setUploadProgress(0);
     }
   };
 
@@ -658,12 +726,16 @@ export default function ImageCustomizationModal({
                   <div className="flex justify-center absolute top-[50%] translate-y-[-50%] left-[50%] translate-x-[-50%]">
                     <Button
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={isLoading}
+                      disabled={isLoading || isCompressing}
                       className="flex items-center gap-2"
                       size="sm"
                     >
-                      <Upload className="h-4 w-4" />
-                      {isLoading ? 'Uploading...' : 'Upload Image'}
+                      {isCompressing ? (
+                        <Shrink className="h-4 w-4 animate-pulse" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      {isCompressing ? 'Compressing...' : isLoading ? 'Uploading...' : 'Upload Image'}
                     </Button>
                   </div>
                 )}
@@ -693,7 +765,7 @@ export default function ImageCustomizationModal({
                 <Input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
@@ -711,6 +783,27 @@ export default function ImageCustomizationModal({
             {/* Controls Section */}
             <div className="w-full lg:w-full border-t lg:border-t-0 lg:border-l border-gray-100 bg-white">
               <div className="p-6 space-y-6">
+                {/* Compression Info */}
+                {/* {compressionInfo && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Shrink className="h-4 w-4 text-blue-600" />
+                      <h4 className="text-sm font-medium text-blue-900">
+                        {compressionInfo.wasCompressed ? 'Image Compressed (20MB+)' : 'Image Ready (Under 20MB)'}
+                      </h4>
+                    </div>
+                    <div className="text-xs text-blue-700 space-y-1">
+                      <div>Original: {compressionInfo.originalSize}</div>
+                      <div>Final: {compressionInfo.compressedSize}</div>
+                      {compressionInfo.wasCompressed && (
+                        <div className="text-green-600 font-medium">
+                          ✓ Optimized for upload
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )} */}
+
                 {uploadedImage ? ( <div>
                   <div className="flex flex-col gap-3 items-center">
                     {/* Rotation Control */}
@@ -766,28 +859,46 @@ export default function ImageCustomizationModal({
                 )}
               </div>
 
+              {/* Progress Bar */}
+              {isSaving && (
+                <div className="px-6 py-4 border-t border-gray-100">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>Saving customization...</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div className=" m-auto flex justify-center items-center w-full border-t border-gray-100 p-4 sm:p-6">
                 <div className="flex gap-3 m-auto">
-                  <Button variant="secondary" onClick={handleSkip} className="flex-1" size="sm">
+                  <Button variant="secondary" onClick={handleSkip} className="flex-1" size="sm" disabled={isSaving}>
                     Skip
                   </Button>
                 
-                  <Button variant="outline" onClick={onClose} className="flex-1" size="sm">
+                  <Button variant="outline" onClick={onClose} className="flex-1" size="sm" disabled={isSaving}>
                     Cancel
                   </Button>
                   
-                  <Button variant="outline" onClick={handleReset} className="w-min " size="sm">
+                  <Button variant="outline" onClick={handleReset} className="w-min " size="sm" disabled={isSaving}>
                       <RotateCcw className="h-4 w-4 mr-2" /> Reset
                   </Button> 
                   <Button 
                     onClick={handleSave} 
-                    disabled={!uploadedImage || isUploading}
+                    disabled={!uploadedImage || isSaving}
                     className="flex-1"
                     size="sm"
                   >
                     <Save className="h-4 w-4 mr-2" />
-                    {isUploading ? 'Saving...' : 'Save'}
+                    {isSaving ? 'Saving...' : 'Save'}
                   </Button>
            
                 </div>
