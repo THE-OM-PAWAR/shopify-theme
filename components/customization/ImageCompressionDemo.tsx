@@ -10,7 +10,7 @@ import toast from 'react-hot-toast';
 
 interface CompressionDemoProps {
   onCompressedImage?: (blob: Blob) => void;
-}
+} 
 
 export default function ImageCompressionDemo({ onCompressedImage }: CompressionDemoProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
