@@ -9,8 +9,8 @@ import { Slider } from '@/components/ui/slider';
 import { ShopifyProduct } from '@/lib/types';
 import { useCustomizationStore } from '@/lib/customization-store';
 import { uploadToCloudinary } from '@/lib/cloudinary';
-import { compressImage, getFileSizeString, isImageFile } from '@/lib/image-compression';
-import { Upload, RotateCcw, Save, X, Image as ImageIcon, Shrink } from 'lucide-react';
+import { isImageFile } from '@/lib/image-compression';
+import { Upload, RotateCcw, Save, X, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 
@@ -64,12 +64,6 @@ export default function ImageCustomizationModal({
   const [frameImageLoadError, setFrameImageLoadError] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
   const [rotateStart, setRotateStart] = useState<{ startAngle: number; startRotation: number }>({ startAngle: 0, startRotation: 0 });
-  const [isCompressing, setIsCompressing] = useState(false);
-  const [compressionInfo, setCompressionInfo] = useState<{
-    originalSize: string;
-    compressedSize: string;
-    wasCompressed: boolean;
-  } | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -314,6 +308,91 @@ export default function ImageCustomizationModal({
     ctx.restore();
   };
 
+  // Smart compression function for files over 10MB
+  const compressImageIfNeeded = (file: File): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+      
+      if (file.size <= maxSize) {
+        // File is already under 10MB, return as-is
+        resolve(file);
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        // Calculate compression based on file size
+        let scale: number;
+        let quality: number;
+        
+        if (file.size <= 15 * 1024 * 1024) {
+          // 10-15MB: Light compression
+          scale = 0.9;
+          quality = 0.95;
+        } else if (file.size <= 25 * 1024 * 1024) {
+          // 15-25MB: Medium compression
+          scale = 0.8;
+          quality = 0.9;
+        } else if (file.size <= 40 * 1024 * 1024) {
+          // 25-40MB: Heavy compression
+          scale = 0.7;
+          quality = 0.85;
+        } else {
+          // 40MB+: Maximum compression
+          scale = 0.6;
+          quality = 0.8;
+        }
+
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+
+        // Draw resized image
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // Convert to blob with calculated quality
+        canvas.toBlob((blob) => {
+          if (blob && blob.size <= maxSize) {
+            resolve(blob);
+          } else {
+            // If still too big, try with even lower quality
+            const fallbackQuality = Math.max(0.6, quality - 0.1);
+            canvas.toBlob((blob2) => {
+              if (blob2 && blob2.size <= maxSize) {
+                resolve(blob2);
+              } else {
+                // Last resort: more aggressive scaling
+                const finalScale = scale * 0.8;
+                const finalCanvas = document.createElement('canvas');
+                const finalCtx = finalCanvas.getContext('2d');
+                if (finalCtx) {
+                  finalCanvas.width = img.width * finalScale;
+                  finalCanvas.height = img.height * finalScale;
+                  finalCtx.drawImage(img, 0, 0, finalCanvas.width, finalCanvas.height);
+                  finalCanvas.toBlob((finalBlob) => {
+                    resolve(finalBlob || file);
+                  }, file.type || 'image/jpeg', 0.7);
+                } else {
+                  resolve(blob2 || file);
+                }
+              }
+            }, file.type || 'image/jpeg', fallbackQuality);
+          }
+        }, file.type || 'image/jpeg', quality);
+      };
+      
+      img.onerror = () => resolve(file);
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -325,34 +404,21 @@ export default function ImageCustomizationModal({
     }
 
     setIsLoading(true);
-    setIsCompressing(true);
-    setCompressionInfo(null);
 
     try {
-      // Compress image if needed
-      const compressionResult = await compressImage(file, {
-        maxSizeInMB: 20,
-        quality: 0.9,
-        maxWidth: 4000,
-        maxHeight: 4000
-      });
-
-      // Update compression info
-      setCompressionInfo({
-        originalSize: getFileSizeString(compressionResult.originalSize),
-        compressedSize: getFileSizeString(compressionResult.compressedSize),
-        wasCompressed: compressionResult.wasCompressed
-      });
-
-      // Show compression feedback
-      if (compressionResult.wasCompressed) {
-        const compressionRatio = ((1 - compressionResult.compressionRatio) * 100).toFixed(1);
-        toast.success('Image uploaded successfully!');
+      // Compress if over 10MB
+      const processedFile = await compressImageIfNeeded(file);
+      
+      // Show compression feedback if file was compressed
+      if (processedFile.size < file.size) {
+        const originalSize = (file.size / (1024 * 1024)).toFixed(1);
+        const compressedSize = (processedFile.size / (1024 * 1024)).toFixed(1);
+        const compressionRatio = ((1 - processedFile.size / file.size) * 100).toFixed(1);
+        toast.success(`Image optimized: ${originalSize}MB → ${compressedSize}MB (${compressionRatio}% reduction)`);
       } else {
         toast.success('Image uploaded successfully!');
       }
 
-      // Create image from compressed blob
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
@@ -365,27 +431,22 @@ export default function ImageCustomizationModal({
             rotation: 0
           });
           setIsLoading(false);
-          setIsCompressing(false);
         };
         img.onerror = () => {
           setIsLoading(false);
-          setIsCompressing(false);
-          toast.error('Failed to load compressed image');
+          toast.error('Failed to load image');
         };
         img.src = e.target?.result as string;
       };
       reader.onerror = () => {
         setIsLoading(false);
-        setIsCompressing(false);
-        toast.error('Failed to read compressed file');
+        toast.error('Failed to read file');
       };
-      reader.readAsDataURL(compressionResult.compressedBlob);
-
+      reader.readAsDataURL(processedFile);
     } catch (error) {
-      console.error('Compression error:', error);
+      console.error('File processing error:', error);
       setIsLoading(false);
-      setIsCompressing(false);
-      toast.error('Failed to process image: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      toast.error('Failed to process image');
     }
   };
 
@@ -726,16 +787,12 @@ export default function ImageCustomizationModal({
                   <div className="flex justify-center absolute top-[50%] translate-y-[-50%] left-[50%] translate-x-[-50%]">
                     <Button
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={isLoading || isCompressing}
+                      disabled={isLoading}
                       className="flex items-center gap-2"
                       size="sm"
                     >
-                      {isCompressing ? (
-                        <Shrink className="h-4 w-4 animate-pulse" />
-                      ) : (
-                        <Upload className="h-4 w-4" />
-                      )}
-                      {isCompressing ? 'Compressing...' : isLoading ? 'Uploading...' : 'Upload Image'}
+                      <Upload className="h-4 w-4" />
+                      {isLoading ? 'Uploading...' : 'Upload Image'}
                     </Button>
                   </div>
                 )}
@@ -783,26 +840,6 @@ export default function ImageCustomizationModal({
             {/* Controls Section */}
             <div className="w-full lg:w-full border-t lg:border-t-0 lg:border-l border-gray-100 bg-white">
               <div className="p-6 space-y-6">
-                {/* Compression Info */}
-                {/* {compressionInfo && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Shrink className="h-4 w-4 text-blue-600" />
-                      <h4 className="text-sm font-medium text-blue-900">
-                        {compressionInfo.wasCompressed ? 'Image Compressed (20MB+)' : 'Image Ready (Under 20MB)'}
-                      </h4>
-                    </div>
-                    <div className="text-xs text-blue-700 space-y-1">
-                      <div>Original: {compressionInfo.originalSize}</div>
-                      <div>Final: {compressionInfo.compressedSize}</div>
-                      {compressionInfo.wasCompressed && (
-                        <div className="text-green-600 font-medium">
-                          ✓ Optimized for upload
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )} */}
 
                 {uploadedImage ? ( <div>
                   <div className="flex flex-col gap-3 items-center">
