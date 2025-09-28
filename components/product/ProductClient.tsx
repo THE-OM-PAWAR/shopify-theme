@@ -274,34 +274,6 @@ export default function ProductClient({ product }: ProductClientProps) {
               </Button>
             </div>
           </div>
-
-          {/* Add to Cart */}
-          <div className="space-y-3">
-            <Button
-              className="w-full"
-              onClick={handleAddToCart}
-              disabled={!selectedVariant || !selectedVariant.availableForSale || isAddingToCart}
-              size="lg"
-            >
-              {isAddingToCart
-                ? 'Adding to Cart...'
-                : selectedVariant && selectedVariant.availableForSale
-                  ? 'Add to Cart'
-                  : 'Out of Stock'
-              }
-            </Button>
-
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleBuyNow}
-              disabled={!selectedVariant || !selectedVariant.availableForSale || isAddingToCart}
-              size="lg"
-            >
-              Buy Now
-            </Button>
-          </div>
-
           <div className="prose max-w-none mt-6">
             <style jsx>{`
               .clamp-3-lines {
@@ -342,6 +314,34 @@ export default function ProductClient({ product }: ProductClientProps) {
               );
             })()}
           </div>
+          {/* Add to Cart */}
+          <div className="space-y-3">
+            <Button
+              className="w-full"
+              onClick={handleAddToCart}
+              disabled={!selectedVariant || !selectedVariant.availableForSale || isAddingToCart}
+              size="lg"
+            >
+              {isAddingToCart
+                ? 'Adding to Cart...'
+                : selectedVariant && selectedVariant.availableForSale
+                  ? 'Add to Cart'
+                  : 'Out of Stock'
+              }
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleBuyNow}
+              disabled={!selectedVariant || !selectedVariant.availableForSale || isAddingToCart}
+              size="lg"
+            >
+              Buy Now
+            </Button>
+          </div>
+
+ 
           {/* Additional Info */}
           <div className="border-t pt-6 space-y-4 text-sm text-gray-600">
             <p>• Free shipping on orders over $50</p>
