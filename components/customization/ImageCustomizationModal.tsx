@@ -347,7 +347,7 @@ export default function ImageCustomizationModal({
       // Show compression feedback
       if (compressionResult.wasCompressed) {
         const compressionRatio = ((1 - compressionResult.compressionRatio) * 100).toFixed(1);
-        toast.success(`Image compressed by ${compressionRatio}% (${getFileSizeString(compressionResult.originalSize)} → ${getFileSizeString(compressionResult.compressedSize)})`);
+        toast.success('Image uploaded successfully!');
       } else {
         toast.success('Image uploaded successfully!');
       }

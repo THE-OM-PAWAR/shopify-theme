@@ -56,7 +56,6 @@ export default function ImageCompressionDemo({ onCompressedImage }: CompressionD
 
       if (result.wasCompressed) {
         const compressionPercentage = ((1 - result.compressionRatio) * 100).toFixed(1);
-        toast.success(`Image compressed by ${compressionPercentage}%`);
       } else {
         toast.success('Image is already under 10MB');
       }
