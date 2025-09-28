@@ -49,7 +49,7 @@ interface Address {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { customer, isAuthenticated, _hasHydrated } = useCustomerStore();
+  const { customer, accessToken, isAuthenticated, _hasHydrated } = useCustomerStore();
   const { items, totalPrice, currencyCode, clearCart } = useCartStore();
   const { getCustomization, _hasHydrated: customizationHasHydrated } = useCustomizationStore();
   
@@ -98,9 +98,25 @@ export default function CheckoutPage() {
       return;
     }
 
-    // If user is not authenticated, show auth modal
+    // SECURITY: If user is not authenticated, show auth modal and prevent access
     if (_hasHydrated && !isAuthenticated) {
       setShowAuthModal(true);
+      // Clear any form data to prevent bypassing
+      setFormData({
+        email: '',
+        firstName: '',
+        lastName: '',
+        address: '',
+        apartment: '',
+        city: '',
+        state: '',
+        pinCode: '',
+        country: 'India',
+        phone: '',
+        saveInfo: true,
+        paymentMethod: 'cod',
+        billingAddressSame: true,
+      });
     }
 
     // If user is authenticated, fetch their addresses and populate form
@@ -335,10 +351,17 @@ export default function CheckoutPage() {
 
   // Function to create Shopify order
   const createShopifyOrder = async (orderData: any) => {
+    // SECURITY: Only allow authenticated users to create orders
+    if (!isAuthenticated || !customer || !accessToken) {
+      throw new Error('Authentication required to place order');
+    }
+
     const response = await fetch('/api/create-order', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'X-Customer-Id': customer.id,
       },
       body: JSON.stringify(orderData),
     });
@@ -364,6 +387,13 @@ export default function CheckoutPage() {
   };
 
   const handleCompleteOrder = async () => {
+    // SECURITY: Ensure user is authenticated before allowing order completion
+    if (!isAuthenticated || !customer) {
+      toast.error('You must be logged in to place an order');
+      setShowAuthModal(true);
+      return;
+    }
+
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -451,6 +481,29 @@ export default function CheckoutPage() {
             </Link>
           </Button>
         </div>
+      </div>
+    );
+  }
+
+  // SECURITY: If user is not authenticated, show loading state and auth modal
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Authentication Required</h2>
+          <p className="text-gray-600">Please log in to continue with your order</p>
+        </div>
+        
+        {/* Non-dismissible authentication modal */}
+        <EmailAuthModal 
+          isOpen={showAuthModal} 
+          onClose={() => {}} // Prevent closing
+          onAuthSuccess={() => {
+            setShowAuthModal(false);
+          }}
+          canClose={false} // Make it non-dismissible
+        />
       </div>
     );
   }
@@ -777,7 +830,7 @@ export default function CheckoutPage() {
                             src={displayImage}
                             alt={item.title}
                             fill
-                            className="object-cover"
+                            className="object-contain"
                             sizes="64px"
                           />
                         </div>

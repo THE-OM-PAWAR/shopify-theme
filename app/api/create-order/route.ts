@@ -21,19 +21,57 @@ export async function POST(request: NextRequest) {
   try {
     const orderData = await request.json();
 
+    // Validate required order data
     if (!orderData.email || !orderData.shipping_address || !orderData.line_items || orderData.line_items.length === 0) {
       return NextResponse.json({ error: 'Missing required order data' }, { status: 400 });
     }
 
-    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
-    const accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+    // SECURITY: Validate authentication
+    const authHeader = request.headers.get('authorization');
+    const customerId = request.headers.get('x-customer-id');
+    
+    if (!authHeader || !customerId) {
+      return NextResponse.json({ 
+        error: 'Authentication required', 
+        details: 'You must be logged in to place an order' 
+      }, { status: 401 });
+    }
 
-    if (!shopifyDomain || !accessToken) {
+    // Verify the access token format
+    if (!authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ 
+        error: 'Invalid authentication format' 
+      }, { status: 401 });
+    }
+
+    const accessToken = authHeader.replace('Bearer ', '');
+    
+    // Validate access token with Shopify
+    const isValidToken = await validateShopifyAccessToken(accessToken, customerId);
+    if (!isValidToken) {
+      return NextResponse.json({ 
+        error: 'Invalid or expired authentication token' 
+      }, { status: 401 });
+    }
+
+    // Additional security: Verify the email matches the authenticated customer
+    const customerEmail = await getCustomerEmailFromToken(accessToken);
+    if (customerEmail && customerEmail !== orderData.email) {
+      return NextResponse.json({ 
+        error: 'Email mismatch', 
+        details: 'Order email must match authenticated customer email' 
+      }, { status: 403 });
+    }
+
+    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
+    const adminAccessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+
+    if (!shopifyDomain || !adminAccessToken) {
       return NextResponse.json({ error: 'Shopify credentials missing' }, { status: 500 });
     }
 
     // Create order in Shopify
-    const shopifyOrder = await createShopifyOrder(orderData, shopifyDomain, accessToken);
+    const shopifyOrder = await createShopifyOrder(orderData, shopifyDomain, adminAccessToken);
     
     if (!shopifyOrder) {
       return NextResponse.json({ error: 'Failed to create order in Shopify' }, { status: 500 });
@@ -157,5 +195,66 @@ async function createShopifyOrder(orderData: any, shopifyDomain: string, accessT
   } catch (error) {
     console.error('Error creating Shopify order:', error);
     throw error;
+  }
+}
+
+// Validate Shopify access token
+async function validateShopifyAccessToken(accessToken: string, customerId: string): Promise<boolean> {
+  try {
+    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
+    if (!shopifyDomain) return false;
+
+    const response = await fetch(`https://${shopifyDomain}/admin/api/2024-01/customers/${customerId}.json`, {
+      method: 'GET',
+      headers: {
+        'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_ACCESS_TOKEN!,
+      },
+    });
+
+    if (!response.ok) return false;
+
+    const data = await response.json();
+    return data.customer && data.customer.id.toString() === customerId;
+  } catch (error) {
+    console.error('Error validating access token:', error);
+    return false;
+  }
+}
+
+// Get customer email from access token
+async function getCustomerEmailFromToken(accessToken: string): Promise<string | null> {
+  try {
+    const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
+    if (!shopifyDomain) return null;
+
+    // Use the Storefront API to get customer info
+    const response = await fetch(`https://${shopifyDomain}/api/2024-01/graphql.json`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Storefront-Access-Token': process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN!,
+      },
+      body: JSON.stringify({
+        query: `
+          query getCustomer($customerAccessToken: String!) {
+            customer(customerAccessToken: $customerAccessToken) {
+              id
+              email
+            }
+          }
+        `,
+        variables: {
+          customerAccessToken: accessToken,
+        },
+      }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    return data.data?.customer?.email || null;
+  } catch (error) {
+    console.error('Error getting customer email:', error);
+    return null;
   }
 }

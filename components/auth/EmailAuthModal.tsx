@@ -14,11 +14,12 @@ interface EmailAuthModalProps {
   onClose: () => void;
   initialEmail?: string;
   onAuthSuccess?: () => void;
+  canClose?: boolean; // Allow modal to be closed
 }
 
 type AuthStep = 'email' | 'otp' | 'register';
 
-export function EmailAuthModal({ isOpen, onClose, initialEmail = '', onAuthSuccess }: EmailAuthModalProps) {
+export function EmailAuthModal({ isOpen, onClose, initialEmail = '', onAuthSuccess, canClose = true }: EmailAuthModalProps) {
   const { setCustomer } = useCustomerStore();
   const [email, setEmail] = useState(initialEmail);
   const [otp, setOtp] = useState('');
@@ -343,7 +344,7 @@ export function EmailAuthModal({ isOpen, onClose, initialEmail = '', onAuthSucce
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={canClose ? onClose : undefined}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center">
