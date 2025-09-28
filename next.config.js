@@ -8,6 +8,12 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@shopify/storefront-kit-react']
   },
+  // Increase body size limit for file uploads
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
 };
 
 module.exports = nextConfig;

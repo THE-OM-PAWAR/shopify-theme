@@ -60,65 +60,11 @@ export default function ImageCustomizationModal({
   const [resizeStart, setResizeStart] = useState<{ mouseX: number; mouseY: number; baseWidth: number; baseHeight: number; startScale: number; dirX: number; dirY: number; initialAlong: number }>({ mouseX: 0, mouseY: 0, baseWidth: 0, baseHeight: 0, startScale: 1, dirX: 0, dirY: 0, initialAlong: 0 });
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [saveProgress, setSaveProgress] = useState(0);
   const [frameImageLoadError, setFrameImageLoadError] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
   const [rotateStart, setRotateStart] = useState<{ startAngle: number; startRotation: number }>({ startAngle: 0, startRotation: 0 });
   
   const { saveCustomization } = useCustomizationStore();
-
-  // Image compression function
-  const compressImage = (file: File, maxSizeMB: number = 10): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const img = new Image();
-      
-      img.onload = () => {
-        // Calculate new dimensions to reduce file size
-        let { width, height } = img;
-        const maxDimension = 2048; // Max width or height
-        
-        if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
-            height = (height * maxDimension) / width;
-            width = maxDimension;
-          } else {
-            width = (width * maxDimension) / height;
-            height = maxDimension;
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-        }
-        
-        // Try different quality levels until file size is acceptable
-        const tryCompress = (quality: number) => {
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const sizeMB = blob.size / (1024 * 1024);
-              if (sizeMB <= maxSizeMB || quality <= 0.1) {
-                resolve(blob);
-              } else {
-                tryCompress(quality - 0.1);
-              }
-            } else {
-              resolve(new Blob());
-            }
-          }, 'image/jpeg', quality);
-        };
-        
-        tryCompress(0.9);
-      };
-      
-      img.src = URL.createObjectURL(file);
-    });
-  };
 
   // Load frame image and calculate canvas dimensions
   useEffect(() => {
@@ -359,37 +305,120 @@ export default function ImageCustomizationModal({
     ctx.restore();
   };
 
+  const compressImage = (file: File, maxSizeMB: number = 10): Promise<File> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+
+      img.onload = () => {
+        const maxSize = maxSizeMB * 1024 * 1024;
+        let quality = 0.9;
+        let { width, height } = img;
+
+        // First, try reducing dimensions if image is very large
+        const maxDimension = 4096; // 4K max
+        if (width > maxDimension || height > maxDimension) {
+          const aspectRatio = width / height;
+          if (width > height) {
+            width = maxDimension;
+            height = maxDimension / aspectRatio;
+          } else {
+            height = maxDimension;
+            width = maxDimension * aspectRatio;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressBlob = () => {
+          canvas.toBlob((blob) => {
+            if (blob && blob.size <= maxSize) {
+              // Create a new File object with the compressed blob
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now()
+              });
+              console.log(`Image compressed from ${file.size} to ${blob.size} bytes`);
+              resolve(compressedFile);
+            } else if (blob && quality > 0.1) {
+              // Reduce quality and try again
+              quality -= 0.1;
+              canvas.toBlob(compressBlob, 'image/jpeg', quality);
+            } else {
+              // If we can't compress enough, return original
+              console.log('Could not compress image enough, using original');
+              resolve(file);
+            }
+          }, 'image/jpeg', quality);
+        };
+
+        compressBlob();
+      };
+
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file.');
+      return;
+    }
+
+    console.log('File selected:', {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
+
     setIsLoading(true);
-    setUploadProgress(0);
 
     try {
-      // Check file size (10MB = 10 * 1024 * 1024 bytes)
-      const maxSizeBytes = 15 * 1024 * 1024;
-      const fileSizeMB = file.size / (1024 * 1024);
+      let processedFile = file;
       
-      let processedFile: Blob = file;
+      // Check for extremely large files (over 100MB)
+      if (file.size > 100 * 1024 * 1024) {
+        toast.error('File too large. Please use an image smaller than 100MB.');
+        setIsLoading(false);
+        return;
+      }
       
-      if (file.size > maxSizeBytes) {
-        setUploadProgress(10);
-        toast(`File size: ${fileSizeMB.toFixed(1)}MB. Compressing image...`, { icon: 'ℹ️' });
+      // If file is larger than 10MB, compress it
+      if (file.size > 10 * 1024 * 1024) {
+        toast.loading('Compressing large image...', { id: 'compress-progress' });
+        processedFile = await compressImage(file, 10);
+        toast.dismiss('compress-progress');
         
-        processedFile = await compressImage(file, 1);
-        const compressedSizeMB = processedFile.size / (1024 * 1024);
-        toast.success(`Image compressed from ${fileSizeMB.toFixed(1)}MB to ${compressedSizeMB.toFixed(1)}MB`);
+        // Check if compression was successful
+        if (processedFile.size > 15 * 1024 * 1024) {
+          toast.error('Could not compress image enough. Please use a smaller image.');
+          setIsLoading(false);
+          return;
+        }
+        
+        const originalSize = (file.size / 1024 / 1024).toFixed(1);
+        const compressedSize = (processedFile.size / 1024 / 1024).toFixed(1);
+        const compressionRatio = ((1 - processedFile.size / file.size) * 100).toFixed(0);
+        
+        // toast.success(`Image compressed: ${originalSize}MB → ${compressedSize}MB (${compressionRatio}% reduction)`);
       }
 
-      setUploadProgress(30);
-
-      // Convert blob to data URL
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
-          setUploadProgress(60);
           setUploadedImage(img);
           setImageState({
             x: canvasDimensions.width / 2,
@@ -397,30 +426,23 @@ export default function ImageCustomizationModal({
             scale: 1,
             rotation: 0
           });
-          setUploadProgress(100);
-          setTimeout(() => {
-            setIsLoading(false);
-            setUploadProgress(0);
-            toast.success('Image uploaded successfully!');
-          }, 500);
+          setIsLoading(false);
+          toast.success('Image uploaded successfully!');
         };
         img.onerror = () => {
           setIsLoading(false);
-          setUploadProgress(0);
           toast.error('Failed to load image');
         };
         img.src = e.target?.result as string;
       };
       reader.onerror = () => {
         setIsLoading(false);
-        setUploadProgress(0);
         toast.error('Failed to read file');
       };
       reader.readAsDataURL(processedFile);
     } catch (error) {
       console.error('File processing error:', error);
       setIsLoading(false);
-      setUploadProgress(0);
       toast.error('Failed to process image');
     }
   };
@@ -654,15 +676,90 @@ export default function ImageCustomizationModal({
     toast.success('Position reset!');
   };
 
-  const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> => {
+  const resizeImageIfNeeded = (image: HTMLImageElement, maxDimension: number = 2048): HTMLCanvasElement => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return canvas;
+
+    const { width, height } = image;
+    let newWidth = width;
+    let newHeight = height;
+
+    // Resize if image is too large
+    if (width > maxDimension || height > maxDimension) {
+      const aspectRatio = width / height;
+      if (width > height) {
+        newWidth = maxDimension;
+        newHeight = maxDimension / aspectRatio;
+      } else {
+        newHeight = maxDimension;
+        newWidth = maxDimension * aspectRatio;
+      }
+    }
+
+    canvas.width = newWidth;
+    canvas.height = newHeight;
+    ctx.drawImage(image, 0, 0, newWidth, newHeight);
+    
+    console.log(`Image resized from ${width}x${height} to ${newWidth}x${newHeight}`);
+    return canvas;
+  };
+
+  const canvasToBlob = (canvas: HTMLCanvasElement, isOriginal: boolean = false): Promise<Blob> => {
     return new Promise((resolve, reject) => {
+      // For original images, try to maintain quality but compress
+      // For rendered/cropped images, use more aggressive compression
+      const quality = isOriginal ? 0.85 : 0.75;
+      const format = 'image/jpeg';
+      
       canvas.toBlob((blob) => {
         if (blob) {
+          console.log(`Canvas blob created: ${blob.size} bytes (${format}, quality: ${quality})`);
           resolve(blob);
         } else {
           reject(new Error('Failed to create blob from canvas'));
         }
-      }, 'image/png', 0.9);
+      }, format, quality);
+    });
+  };
+
+  const optimizeBlobSize = async (blob: Blob, maxSize: number = 5 * 1024 * 1024): Promise<Blob> => {
+    if (blob.size <= maxSize) {
+      return blob;
+    }
+
+    console.log(`Blob too large (${blob.size} bytes), optimizing...`);
+    
+    // Convert blob to image
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) return blob;
+
+    return new Promise((resolve) => {
+      img.onload = () => {
+        // Calculate new dimensions to reduce file size
+        const reductionFactor = Math.sqrt(maxSize / blob.size);
+        const newWidth = Math.floor(img.width * reductionFactor);
+        const newHeight = Math.floor(img.height * reductionFactor);
+        
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+        ctx.drawImage(img, 0, 0, newWidth, newHeight);
+        
+        // Create optimized blob with lower quality
+        canvas.toBlob((optimizedBlob) => {
+          if (optimizedBlob) {
+            console.log(`Blob optimized from ${blob.size} to ${optimizedBlob.size} bytes`);
+            resolve(optimizedBlob);
+          } else {
+            resolve(blob);
+          }
+        }, 'image/jpeg', 0.7);
+      };
+      
+      img.src = URL.createObjectURL(blob);
     });
   };
 
@@ -673,37 +770,46 @@ export default function ImageCustomizationModal({
     }
 
     setIsUploading(true);
-    setSaveProgress(0);
     
     try {
-      // Step 1: Prepare canvases (10%)
-      setSaveProgress(10);
-      const originalCanvas = document.createElement('canvas');
-      originalCanvas.width = uploadedImage.width;
-      originalCanvas.height = uploadedImage.height;
-      const originalCtx = originalCanvas.getContext('2d');
-      if (originalCtx) {
-        originalCtx.drawImage(uploadedImage, 0, 0);
-      }
+      toast.loading('Preparing images for upload...', { id: 'upload-progress' });
+      
+      // Resize original image if it's too large to reduce file size
+      const resizedOriginalCanvas = resizeImageIfNeeded(uploadedImage, 2048);
 
-      // Step 2: Convert canvases to blobs (20%)
-      setSaveProgress(20);
-      const renderedBlob = await canvasToBlob(canvasRef.current);
-      setSaveProgress(30);
-      const croppedBlob = await canvasToBlob(croppedCanvasRef.current);
-      setSaveProgress(40);
-      const originalBlob = await canvasToBlob(originalCanvas);
+      toast.loading('Converting images to upload format...', { id: 'upload-progress' });
+      
+      const renderedBlob = await canvasToBlob(canvasRef.current, false);
+      const croppedBlob = await canvasToBlob(croppedCanvasRef.current, false);
+      const originalBlob = await canvasToBlob(resizedOriginalCanvas, true);
 
-      // Step 3: Upload to Cloudinary with progress tracking (40-90%)
-      setSaveProgress(50);
-      const renderedUrl = await uploadToCloudinary(renderedBlob, `${product.handle}-rendered-${Date.now()}`);
-      setSaveProgress(65);
-      const croppedUrl = await uploadToCloudinary(croppedBlob, `${product.handle}-cropped-${Date.now()}`);
-      setSaveProgress(80);
-      const originalUrl = await uploadToCloudinary(originalBlob, `${product.handle}-original-${Date.now()}`);
+      console.log('Initial blob sizes:', {
+        rendered: renderedBlob.size,
+        cropped: croppedBlob.size,
+        original: originalBlob.size
+      });
 
-      // Step 4: Save customization data (90-95%)
-      setSaveProgress(90);
+      // Optimize blob sizes if they're too large
+      const optimizedRenderedBlob = await optimizeBlobSize(renderedBlob, 3 * 1024 * 1024); // 3MB limit
+      const optimizedCroppedBlob = await optimizeBlobSize(croppedBlob, 3 * 1024 * 1024); // 3MB limit
+      const optimizedOriginalBlob = await optimizeBlobSize(originalBlob, 5 * 1024 * 1024); // 5MB limit
+
+      console.log('Optimized blob sizes:', {
+        rendered: optimizedRenderedBlob.size,
+        cropped: optimizedCroppedBlob.size,
+        original: optimizedOriginalBlob.size
+      });
+
+      toast.loading('Uploading images to cloud storage...', { id: 'upload-progress' });
+
+      const [renderedUrl, croppedUrl, originalUrl] = await Promise.all([
+        uploadToCloudinary(optimizedRenderedBlob, `${product.handle}-rendered-${Date.now()}`),
+        uploadToCloudinary(optimizedCroppedBlob, `${product.handle}-cropped-${Date.now()}`),
+        uploadToCloudinary(optimizedOriginalBlob, `${product.handle}-original-${Date.now()}`)
+      ]);
+
+      toast.loading('Saving customization...', { id: 'upload-progress' });
+
       saveCustomization(product.id, {
         originalImageUrl: originalUrl,
         renderedImageUrl: renderedUrl,
@@ -714,21 +820,30 @@ export default function ImageCustomizationModal({
         createdAt: new Date().toISOString()
       });
 
-      // Step 5: Complete (95-100%)
-      setSaveProgress(100);
+      toast.dismiss('upload-progress');
       toast.success('Customization saved successfully!');
-      
-      // Small delay to show completion
-      setTimeout(() => {
-        router.push(`/products/${product.handle}`);
-        onClose();
-      }, 500);
+      router.push(`/products/${product.handle}`);
+      onClose();
     } catch (error) {
       console.error('Save error:', error);
-      toast.error('Failed to save customization: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      toast.dismiss('upload-progress');
+      
+      let errorMessage = 'Failed to save customization';
+      if (error instanceof Error) {
+        if (error.message.includes('File too large')) {
+          errorMessage = 'Image file is too large. Please use an image smaller than 10MB.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Upload timed out. Please check your internet connection and try again.';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else {
+          errorMessage = `Failed to save customization: ${error.message}`;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setIsUploading(false);
-      setSaveProgress(0);
     }
   };
 
@@ -760,7 +875,7 @@ export default function ImageCustomizationModal({
               <div className="space-y-4 relative">
                 {/* Upload Button */}
                 {!uploadedImage && (
-                  <div className="flex flex-col items-center absolute top-[50%] translate-y-[-50%] left-[50%] translate-x-[-50%] space-y-3">
+                  <div className="flex justify-center absolute top-[50%] translate-y-[-50%] left-[50%] translate-x-[-50%]">
                     <Button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isLoading}
@@ -768,27 +883,8 @@ export default function ImageCustomizationModal({
                       size="sm"
                     >
                       <Upload className="h-4 w-4" />
-                      {isLoading ? 'Processing...' : 'Upload Image'}
+                      {isLoading ? 'Uploading...' : 'Upload Image'}
                     </Button>
-                    
-                    {/* Progress Bar */}
-                    {isLoading && uploadProgress > 0 && (
-                      <div className="w-64 bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
-                    )}
-                    
-                    {/* Progress Text */}
-                    {isLoading && uploadProgress > 0 && (
-                      <p className="text-xs text-gray-600 text-center">
-                        {uploadProgress < 30 ? 'Processing image...' : 
-                         uploadProgress < 60 ? 'Loading image...' : 
-                         uploadProgress < 100 ? 'Finalizing...' : 'Complete!'}
-                      </p>
-                    )}
                   </div>
                 )}
 
@@ -892,49 +988,28 @@ export default function ImageCustomizationModal({
 
               {/* Action Buttons */}
               <div className=" m-auto flex justify-center items-center w-full border-t border-gray-100 p-4 sm:p-6">
-                <div className="flex flex-col gap-3 w-full">
-                  {/* Save Progress Bar */}
-                  {isUploading && saveProgress > 0 && (
-                    <div className="w-full space-y-2">
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-green-600 h-2 rounded-full transition-all duration-300 ease-out"
-                          style={{ width: `${saveProgress}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-600 text-center">
-                        {saveProgress < 20 ? 'Preparing images...' : 
-                         saveProgress < 50 ? 'Converting to files...' : 
-                         saveProgress < 80 ? 'Uploading to cloud...' : 
-                         saveProgress < 90 ? 'Saving data...' : 
-                         saveProgress < 100 ? 'Finalizing...' : 'Complete!'}
-                      </p>
-                    </div>
-                  )}
+                <div className="flex gap-3 m-auto">
+                  <Button variant="secondary" onClick={handleSkip} className="flex-1" size="sm">
+                    Skip
+                  </Button>
+                
+                  <Button variant="outline" onClick={onClose} className="flex-1" size="sm">
+                    Cancel
+                  </Button>
                   
-                  <div className="flex gap-3 m-auto">
-                    <Button variant="secondary" onClick={handleSkip} className="flex-1" size="sm" disabled={isUploading}>
-                      Skip
-                    </Button>
-                  
-                    <Button variant="outline" onClick={onClose} className="flex-1" size="sm" disabled={isUploading}>
-                      Cancel
-                    </Button>
-                    
-                    <Button variant="outline" onClick={handleReset} className="w-min " size="sm" disabled={isUploading}>
-                        <RotateCcw className="h-4 w-4 mr-2" /> Reset
-                    </Button> 
-                    <Button 
-                      onClick={handleSave} 
-                      disabled={!uploadedImage || isUploading}
-                      className="flex-1"
-                      size="sm"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      {isUploading ? 'Saving...' : 'Save'}
-                    </Button>
-             
-                  </div>
+                  <Button variant="outline" onClick={handleReset} className="w-min " size="sm">
+                      <RotateCcw className="h-4 w-4 mr-2" /> Reset
+                  </Button> 
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={!uploadedImage || isUploading}
+                    className="flex-1"
+                    size="sm"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isUploading ? 'Saving...' : 'Save'}
+                  </Button>
+           
                 </div>
               </div>
             </div>

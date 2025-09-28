@@ -304,16 +304,16 @@ export default function FramePreview({
         </div>
       )}
       
-      {hydratedCustomization && (
+      {/* {hydratedCustomization && (
         <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
           Customized
         </div>
-      )}
+      )} */}
       
-      {/* Debug info for frame size */}
+      {/* Debug info for frame size
       <div className="absolute top-2 right-2 bg-gray-800 text-white text-xs px-2 py-1 rounded-full">
         V{variantIndex}: {currentFraction.toFixed(3)}
-      </div>
+      </div> */}
     </div>
   );
 }

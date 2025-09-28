@@ -30,7 +30,7 @@ export default function ProductClient({ product }: ProductClientProps) {
   });
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
-  
+
   const { addToCart, openCart } = useCartStore();
 
   // Initialize selected variant on component mount
@@ -83,11 +83,11 @@ export default function ProductClient({ product }: ProductClientProps) {
     // Find the variant that matches the selected options
     const matchingVariant = product.variants.edges.find(({ node: variant }) =>
       variant.selectedOptions.length === Object.keys(newSelectedOptions).length &&
-      variant.selectedOptions.every(option => 
+      variant.selectedOptions.every(option =>
         newSelectedOptions[option.name] === option.value
       ) &&
       Object.keys(newSelectedOptions).every(optionName =>
-        variant.selectedOptions.some(option => 
+        variant.selectedOptions.some(option =>
           option.name === optionName && option.value === newSelectedOptions[optionName]
         )
       )
@@ -128,7 +128,7 @@ export default function ProductClient({ product }: ProductClientProps) {
       quantity,
       productTitle: product.title,
       variantTitle: selectedVariant.title
-    });  
+    });
 
     setIsAddingToCart(true);
     try {
@@ -140,12 +140,12 @@ export default function ProductClient({ product }: ProductClientProps) {
           color: '#fff',
         },
       });
-      
+
       // Open cart drawer after successful add
       setTimeout(() => {
         openCart();
       }, 500);
-      
+
     } catch (error) {
       console.error('Add to cart error:', error);
       toast.error('Failed to add item to cart. Please try again.', {
@@ -174,10 +174,10 @@ export default function ProductClient({ product }: ProductClientProps) {
     try {
       // Add to cart first
       await addToCart(selectedVariant.id, quantity);
-      
+
       // Redirect to checkout immediately
       window.location.href = '/checkout';
-      
+
     } catch (error) {
       console.error('Buy now error:', error);
       toast.error('Failed to process. Please try again.');
@@ -189,12 +189,12 @@ export default function ProductClient({ product }: ProductClientProps) {
 
 
   return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-2 lg:px-8 py-16">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Product Images */}
         <div>
-          <ProductImages 
-            images={allImages} 
+          <ProductImages
+            images={allImages}
             productTitle={product.title}
             productId={product.id}
             selectedVariant={selectedVariant || undefined}
@@ -223,46 +223,11 @@ export default function ProductClient({ product }: ProductClientProps) {
               </p>
             )}
           </div>
+        </div>
+        <div className="space-y-6">
 
-          <div className="prose max-w-none">
-            <style jsx>{`
-              .clamp-3-lines {
-                display: -webkit-box;
-                -webkit-line-clamp: 3;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: normal;
-                transition: max-height 0.2s;
-              }
-              .expanded {
-                -webkit-line-clamp: unset;
-                max-height: none;
-                overflow: visible;
-              }
-            `}</style>
-            {(() => {
-              const [expanded, setExpanded] = useState(false);
-              return (
-                <>
-                  <p
-                    className={`text-gray-600 clamp-3-lines${expanded ? ' expanded' : ''}`}
-                  >
-                    {product.description}  
-                  </p>
-                  {product.description && (
-                    <button
-                      type="button"
-                      className="mt-2 text-blue-600 hover:underline text-sm font-medium focus:outline-none"
-                      onClick={() => setExpanded((prev) => !prev)}
-                    >
-                      {expanded ? 'View less' : 'View more'}
-                    </button>
-                  )}
-                </>
-              );
-            })()}
-          </div>
+
+
 
           {/* Variant Options */}
           {product.options && product.options.length > 0 && product.options.filter(option => option.values.length > 1).map((option) => (
@@ -273,11 +238,10 @@ export default function ProductClient({ product }: ProductClientProps) {
                   <button
                     key={value}
                     onClick={() => handleOptionChange(option.name, value)}
-                    className={`px-4 py-2 border rounded-md transition-colors text-sm font-medium ${
-                      selectedOptions[option.name] === value
-                        ? 'border-black bg-black text-white'
-                        : 'border-gray-300 hover:border-gray-400 bg-white text-gray-900'
-                    }`}
+                    className={`px-4 py-2 border rounded-md transition-colors text-sm font-medium ${selectedOptions[option.name] === value
+                      ? 'border-black bg-black text-white'
+                      : 'border-gray-300 hover:border-gray-400 bg-white text-gray-900'
+                      }`}
                   >
                     {value}
                   </button>
@@ -319,14 +283,14 @@ export default function ProductClient({ product }: ProductClientProps) {
               disabled={!selectedVariant || !selectedVariant.availableForSale || isAddingToCart}
               size="lg"
             >
-              {isAddingToCart 
-                ? 'Adding to Cart...' 
-                : selectedVariant && selectedVariant.availableForSale 
-                  ? 'Add to Cart' 
+              {isAddingToCart
+                ? 'Adding to Cart...'
+                : selectedVariant && selectedVariant.availableForSale
+                  ? 'Add to Cart'
                   : 'Out of Stock'
               }
             </Button>
-            
+
             <Button
               variant="outline"
               className="w-full"
@@ -338,7 +302,46 @@ export default function ProductClient({ product }: ProductClientProps) {
             </Button>
           </div>
 
-
+          <div className="prose max-w-none mt-6">
+            <style jsx>{`
+              .clamp-3-lines {
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: normal;
+                transition: max-height 0.2s;
+              }
+              .expanded {
+                -webkit-line-clamp: unset;
+                max-height: none;
+                overflow: visible;
+              }
+            `}</style>
+            {(() => {
+              const [expanded, setExpanded] = useState(false);
+              return (
+                <>
+                <h3 className="font-medium text-gray-900 mb-2">Description</h3>
+                  <p
+                    className={`text-gray-600 clamp-3-lines${expanded ? ' expanded' : ''}`}
+                  >
+                    {product.description}
+                  </p>
+                  {product.description && (
+                    <button
+                      type="button"
+                      className="mt-2 text-blue-600 hover:underline text-sm font-medium focus:outline-none"
+                      onClick={() => setExpanded((prev) => !prev)}
+                    >
+                      {expanded ? 'View less' : 'View more'}
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+          </div>
           {/* Additional Info */}
           <div className="border-t pt-6 space-y-4 text-sm text-gray-600">
             <p>• Free shipping on orders over $50</p>
@@ -349,7 +352,7 @@ export default function ProductClient({ product }: ProductClientProps) {
       </div>
 
       {/* Recommended Products */}
-      <RecommendedProducts 
+      <RecommendedProducts
         currentProductId={product.id}
         currentProductTitle={product.title}
       />
