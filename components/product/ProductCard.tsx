@@ -60,7 +60,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       <div className="group relative cursor-pointer" onClick={handleCardClick}>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl hover:border-gray-200 transition-all duration-500 transform hover:-translate-y-2">
           {/* Product Image */}
-          <div className="aspect-square relative overflow-hidden bg-gray-50">
+          <div className="aspect-square md:aspect-square aspect-[2/3] relative overflow-hidden bg-gray-50">
             {currentDisplayImage ? (
               <Image
                 src={currentDisplayImage}

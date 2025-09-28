@@ -113,7 +113,8 @@ export default function ProductImages({
 
   if (images.length === 0) {
     return (
-      <div className="aspect-square bg-gray-200 rounded-lg flex items-center justify-center">
+      <div className="
+       aspect-[2/3] bg-gray-200 rounded-lg flex items-center justify-center">
         <span className="text-gray-400">No image available</span>
       </div>
     );
@@ -141,17 +142,18 @@ export default function ProductImages({
   return (
     <div className="space-y-4">
       {/* Main Image */}
-      <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
+      <div className="relative 
+       aspect-[2/3] bg-gray-100 rounded-lg overflow-hidden">
         {allImages[currentImageIndex].url === 'frame-preview' ? (
-          <div className="w-full h-full flex items-center justify-center p-4">
+          <div className="w-full h-full flex items-center justify-center p-0">
             <FramePreview
               productId={productId!}
               frameCoverUrl={frameCoverUrl}
               variantImageUrl={selectedVariant?.image?.url}
               frameSizeMeta={finalFrameSizeValue}
               variantIndex={currentVariantIndex}
-              width={400}
-              height={600}
+              width={800}
+              height={1200}
               className="max-w-full max-h-full"
             />
           </div>
@@ -190,11 +192,12 @@ export default function ProductImages({
 
       {/* Thumbnail Images */}
       {allImages.length > 1 && (
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-6 gap-2">
           {allImages.map((image, index) => (
             <button
               key={image.id}
-              className={`aspect-square relative rounded-md overflow-hidden border-2 ${
+              className={`
+                 aspect-[2/3] relative  overflow-hidden border-2 ${
                 index === currentImageIndex ? 'border-black' : 'border-transparent'
               }`}
               onClick={() => setCurrentImageIndex(index)}

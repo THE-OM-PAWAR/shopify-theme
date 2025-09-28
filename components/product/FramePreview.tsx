@@ -16,8 +16,8 @@ export default function FramePreview({
   productId,
   frameCoverUrl,
   variantImageUrl,
-  width = 500,
-  height = 800,
+  width = 800,
+  height = 1200,
   className = '',
   frameSizeMeta,
   variantIndex = 0
@@ -82,7 +82,7 @@ export default function FramePreview({
             // Image is wider than canvas: match height, crop width
             drawH = height;
             drawW = Math.round(drawH * imgAspect);
-            dx = Math.floor((width - drawW) / 2);
+            dx = Math.floor((width - drawW) / 1.5);
             dy = 0;
           } else {
             // Image is taller than canvas: match width, crop height

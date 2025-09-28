@@ -9,7 +9,6 @@ import { Slider } from '@/components/ui/slider';
 import { ShopifyProduct } from '@/lib/types';
 import { useCustomizationStore } from '@/lib/customization-store';
 import { uploadToCloudinary } from '@/lib/cloudinary';
-import { isImageFile } from '@/lib/image-compression';
 import { Upload, RotateCcw, Save, X, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -61,13 +60,65 @@ export default function ImageCustomizationModal({
   const [resizeStart, setResizeStart] = useState<{ mouseX: number; mouseY: number; baseWidth: number; baseHeight: number; startScale: number; dirX: number; dirY: number; initialAlong: number }>({ mouseX: 0, mouseY: 0, baseWidth: 0, baseHeight: 0, startScale: 1, dirX: 0, dirY: 0, initialAlong: 0 });
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [saveProgress, setSaveProgress] = useState(0);
   const [frameImageLoadError, setFrameImageLoadError] = useState(false);
   const [isRotating, setIsRotating] = useState(false);
   const [rotateStart, setRotateStart] = useState<{ startAngle: number; startRotation: number }>({ startAngle: 0, startRotation: 0 });
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
   
   const { saveCustomization } = useCustomizationStore();
+
+  // Image compression function
+  const compressImage = (file: File, maxSizeMB: number = 10): Promise<Blob> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calculate new dimensions to reduce file size
+        let { width, height } = img;
+        const maxDimension = 2048; // Max width or height
+        
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = (height * maxDimension) / width;
+            width = maxDimension;
+          } else {
+            width = (width * maxDimension) / height;
+            height = maxDimension;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+        
+        // Try different quality levels until file size is acceptable
+        const tryCompress = (quality: number) => {
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const sizeMB = blob.size / (1024 * 1024);
+              if (sizeMB <= maxSizeMB || quality <= 0.1) {
+                resolve(blob);
+              } else {
+                tryCompress(quality - 0.1);
+              }
+            } else {
+              resolve(new Blob());
+            }
+          }, 'image/jpeg', quality);
+        };
+        
+        tryCompress(0.9);
+      };
+      
+      img.src = URL.createObjectURL(file);
+    });
+  };
 
   // Load frame image and calculate canvas dimensions
   useEffect(() => {
@@ -308,121 +359,37 @@ export default function ImageCustomizationModal({
     ctx.restore();
   };
 
-  // Smart compression function for files over 10MB
-  const compressImageIfNeeded = (file: File): Promise<Blob> => {
-    return new Promise((resolve) => {
-      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-      
-      if (file.size <= maxSize) {
-        // File is already under 10MB, return as-is
-        resolve(file);
-        return;
-      }
-
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          resolve(file);
-          return;
-        }
-
-        // Calculate compression based on file size
-        let scale: number;
-        let quality: number;
-        
-        if (file.size <= 15 * 1024 * 1024) {
-          // 10-15MB: Light compression
-          scale = 0.9;
-          quality = 0.95;
-        } else if (file.size <= 25 * 1024 * 1024) {
-          // 15-25MB: Medium compression
-          scale = 0.8;
-          quality = 0.9;
-        } else if (file.size <= 40 * 1024 * 1024) {
-          // 25-40MB: Heavy compression
-          scale = 0.7;
-          quality = 0.85;
-        } else {
-          // 40MB+: Maximum compression
-          scale = 0.6;
-          quality = 0.8;
-        }
-
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-
-        // Draw resized image
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        // Convert to blob with calculated quality
-        canvas.toBlob((blob) => {
-          if (blob && blob.size <= maxSize) {
-            resolve(blob);
-          } else {
-            // If still too big, try with even lower quality
-            const fallbackQuality = Math.max(0.6, quality - 0.1);
-            canvas.toBlob((blob2) => {
-              if (blob2 && blob2.size <= maxSize) {
-                resolve(blob2);
-              } else {
-                // Last resort: more aggressive scaling
-                const finalScale = scale * 0.8;
-                const finalCanvas = document.createElement('canvas');
-                const finalCtx = finalCanvas.getContext('2d');
-                if (finalCtx) {
-                  finalCanvas.width = img.width * finalScale;
-                  finalCanvas.height = img.height * finalScale;
-                  finalCtx.drawImage(img, 0, 0, finalCanvas.width, finalCanvas.height);
-                  finalCanvas.toBlob((finalBlob) => {
-                    resolve(finalBlob || file);
-                  }, file.type || 'image/jpeg', 0.7);
-                } else {
-                  resolve(blob2 || file);
-                }
-              }
-            }, file.type || 'image/jpeg', fallbackQuality);
-          }
-        }, file.type || 'image/jpeg', quality);
-      };
-      
-      img.onerror = () => resolve(file);
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!isImageFile(file)) {
-      toast.error('Please select a valid image file');
-      return;
-    }
-
     setIsLoading(true);
+    setUploadProgress(0);
 
     try {
-      // Compress if over 10MB
-      const processedFile = await compressImageIfNeeded(file);
+      // Check file size (10MB = 10 * 1024 * 1024 bytes)
+      const maxSizeBytes = 15 * 1024 * 1024;
+      const fileSizeMB = file.size / (1024 * 1024);
       
-      // Show compression feedback if file was compressed
-      if (processedFile.size < file.size) {
-        const originalSize = (file.size / (1024 * 1024)).toFixed(1);
-        const compressedSize = (processedFile.size / (1024 * 1024)).toFixed(1);
-        const compressionRatio = ((1 - processedFile.size / file.size) * 100).toFixed(1);
-        toast.success(`Image optimized: ${originalSize}MB → ${compressedSize}MB (${compressionRatio}% reduction)`);
-      } else {
-        toast.success('Image uploaded successfully!');
+      let processedFile: Blob = file;
+      
+      if (file.size > maxSizeBytes) {
+        setUploadProgress(10);
+        toast(`File size: ${fileSizeMB.toFixed(1)}MB. Compressing image...`, { icon: 'ℹ️' });
+        
+        processedFile = await compressImage(file, 1);
+        const compressedSizeMB = processedFile.size / (1024 * 1024);
+        toast.success(`Image compressed from ${fileSizeMB.toFixed(1)}MB to ${compressedSizeMB.toFixed(1)}MB`);
       }
 
+      setUploadProgress(30);
+
+      // Convert blob to data URL
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
+          setUploadProgress(60);
           setUploadedImage(img);
           setImageState({
             x: canvasDimensions.width / 2,
@@ -430,22 +397,30 @@ export default function ImageCustomizationModal({
             scale: 1,
             rotation: 0
           });
-          setIsLoading(false);
+          setUploadProgress(100);
+          setTimeout(() => {
+            setIsLoading(false);
+            setUploadProgress(0);
+            toast.success('Image uploaded successfully!');
+          }, 500);
         };
         img.onerror = () => {
           setIsLoading(false);
+          setUploadProgress(0);
           toast.error('Failed to load image');
         };
         img.src = e.target?.result as string;
       };
       reader.onerror = () => {
         setIsLoading(false);
+        setUploadProgress(0);
         toast.error('Failed to read file');
       };
       reader.readAsDataURL(processedFile);
     } catch (error) {
       console.error('File processing error:', error);
       setIsLoading(false);
+      setUploadProgress(0);
       toast.error('Failed to process image');
     }
   };
@@ -697,12 +672,12 @@ export default function ImageCustomizationModal({
       return;
     }
 
-    setIsSaving(true);
-    setUploadProgress(0);
+    setIsUploading(true);
+    setSaveProgress(0);
     
     try {
       // Step 1: Prepare canvases (10%)
-      setUploadProgress(10);
+      setSaveProgress(10);
       const originalCanvas = document.createElement('canvas');
       originalCanvas.width = uploadedImage.width;
       originalCanvas.height = uploadedImage.height;
@@ -711,24 +686,24 @@ export default function ImageCustomizationModal({
         originalCtx.drawImage(uploadedImage, 0, 0);
       }
 
-      // Step 2: Create blobs (20%)
-      setUploadProgress(20);
+      // Step 2: Convert canvases to blobs (20%)
+      setSaveProgress(20);
       const renderedBlob = await canvasToBlob(canvasRef.current);
-      setUploadProgress(30);
+      setSaveProgress(30);
       const croppedBlob = await canvasToBlob(croppedCanvasRef.current);
-      setUploadProgress(40);
+      setSaveProgress(40);
       const originalBlob = await canvasToBlob(originalCanvas);
 
-      // Step 3: Upload to Cloudinary (40-90%)
-      setUploadProgress(50);
+      // Step 3: Upload to Cloudinary with progress tracking (40-90%)
+      setSaveProgress(50);
       const renderedUrl = await uploadToCloudinary(renderedBlob, `${product.handle}-rendered-${Date.now()}`);
-      setUploadProgress(70);
+      setSaveProgress(65);
       const croppedUrl = await uploadToCloudinary(croppedBlob, `${product.handle}-cropped-${Date.now()}`);
-      setUploadProgress(90);
+      setSaveProgress(80);
       const originalUrl = await uploadToCloudinary(originalBlob, `${product.handle}-original-${Date.now()}`);
 
-      // Step 4: Save customization (90-100%)
-      setUploadProgress(95);
+      // Step 4: Save customization data (90-95%)
+      setSaveProgress(90);
       saveCustomization(product.id, {
         originalImageUrl: originalUrl,
         renderedImageUrl: renderedUrl,
@@ -739,10 +714,11 @@ export default function ImageCustomizationModal({
         createdAt: new Date().toISOString()
       });
 
-      setUploadProgress(100);
+      // Step 5: Complete (95-100%)
+      setSaveProgress(100);
       toast.success('Customization saved successfully!');
       
-      // Small delay to show 100% completion
+      // Small delay to show completion
       setTimeout(() => {
         router.push(`/products/${product.handle}`);
         onClose();
@@ -751,8 +727,8 @@ export default function ImageCustomizationModal({
       console.error('Save error:', error);
       toast.error('Failed to save customization: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
-      setIsSaving(false);
-      setUploadProgress(0);
+      setIsUploading(false);
+      setSaveProgress(0);
     }
   };
 
@@ -784,7 +760,7 @@ export default function ImageCustomizationModal({
               <div className="space-y-4 relative">
                 {/* Upload Button */}
                 {!uploadedImage && (
-                  <div className="flex justify-center absolute top-[50%] translate-y-[-50%] left-[50%] translate-x-[-50%]">
+                  <div className="flex flex-col items-center absolute top-[50%] translate-y-[-50%] left-[50%] translate-x-[-50%] space-y-3">
                     <Button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isLoading}
@@ -792,8 +768,27 @@ export default function ImageCustomizationModal({
                       size="sm"
                     >
                       <Upload className="h-4 w-4" />
-                      {isLoading ? 'Uploading...' : 'Upload Image'}
+                      {isLoading ? 'Processing...' : 'Upload Image'}
                     </Button>
+                    
+                    {/* Progress Bar */}
+                    {isLoading && uploadProgress > 0 && (
+                      <div className="w-64 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Progress Text */}
+                    {isLoading && uploadProgress > 0 && (
+                      <p className="text-xs text-gray-600 text-center">
+                        {uploadProgress < 30 ? 'Processing image...' : 
+                         uploadProgress < 60 ? 'Loading image...' : 
+                         uploadProgress < 100 ? 'Finalizing...' : 'Complete!'}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -822,7 +817,7 @@ export default function ImageCustomizationModal({
                 <Input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                  accept="image/*"
                   onChange={handleFileUpload}
                   className="hidden"
                 />
@@ -840,7 +835,6 @@ export default function ImageCustomizationModal({
             {/* Controls Section */}
             <div className="w-full lg:w-full border-t lg:border-t-0 lg:border-l border-gray-100 bg-white">
               <div className="p-6 space-y-6">
-
                 {uploadedImage ? ( <div>
                   <div className="flex flex-col gap-3 items-center">
                     {/* Rotation Control */}
@@ -896,48 +890,51 @@ export default function ImageCustomizationModal({
                 )}
               </div>
 
-              {/* Progress Bar */}
-              {isSaving && (
-                <div className="px-6 py-4 border-t border-gray-100">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm text-gray-600">
-                      <span>Saving customization...</span>
-                      <span>{uploadProgress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Action Buttons */}
               <div className=" m-auto flex justify-center items-center w-full border-t border-gray-100 p-4 sm:p-6">
-                <div className="flex gap-3 m-auto">
-                  <Button variant="secondary" onClick={handleSkip} className="flex-1" size="sm" disabled={isSaving}>
-                    Skip
-                  </Button>
-                
-                  <Button variant="outline" onClick={onClose} className="flex-1" size="sm" disabled={isSaving}>
-                    Cancel
-                  </Button>
+                <div className="flex flex-col gap-3 w-full">
+                  {/* Save Progress Bar */}
+                  {isUploading && saveProgress > 0 && (
+                    <div className="w-full space-y-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-green-600 h-2 rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${saveProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-600 text-center">
+                        {saveProgress < 20 ? 'Preparing images...' : 
+                         saveProgress < 50 ? 'Converting to files...' : 
+                         saveProgress < 80 ? 'Uploading to cloud...' : 
+                         saveProgress < 90 ? 'Saving data...' : 
+                         saveProgress < 100 ? 'Finalizing...' : 'Complete!'}
+                      </p>
+                    </div>
+                  )}
                   
-                  <Button variant="outline" onClick={handleReset} className="w-min " size="sm" disabled={isSaving}>
-                      <RotateCcw className="h-4 w-4 mr-2" /> Reset
-                  </Button> 
-                  <Button 
-                    onClick={handleSave} 
-                    disabled={!uploadedImage || isSaving}
-                    className="flex-1"
-                    size="sm"
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? 'Saving...' : 'Save'}
-                  </Button>
-           
+                  <div className="flex gap-3 m-auto">
+                    <Button variant="secondary" onClick={handleSkip} className="flex-1" size="sm" disabled={isUploading}>
+                      Skip
+                    </Button>
+                  
+                    <Button variant="outline" onClick={onClose} className="flex-1" size="sm" disabled={isUploading}>
+                      Cancel
+                    </Button>
+                    
+                    <Button variant="outline" onClick={handleReset} className="w-min " size="sm" disabled={isUploading}>
+                        <RotateCcw className="h-4 w-4 mr-2" /> Reset
+                    </Button> 
+                    <Button 
+                      onClick={handleSave} 
+                      disabled={!uploadedImage || isUploading}
+                      className="flex-1"
+                      size="sm"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {isUploading ? 'Saving...' : 'Save'}
+                    </Button>
+             
+                  </div>
                 </div>
               </div>
             </div>
