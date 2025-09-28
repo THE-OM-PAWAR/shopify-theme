@@ -223,11 +223,6 @@ export default function ProductClient({ product }: ProductClientProps) {
               </p>
             )}
           </div>
-        </div>
-        <div className="space-y-6">
-
-
-
 
           {/* Variant Options */}
           {product.options && product.options.length > 0 && product.options.filter(option => option.values.length > 1).map((option) => (
@@ -295,7 +290,7 @@ export default function ProductClient({ product }: ProductClientProps) {
               const [expanded, setExpanded] = useState(false);
               return (
                 <>
-                <h3 className="font-medium text-gray-900 mb-2">Description</h3>
+                  <h3 className="font-medium text-gray-900 mb-2">Description</h3>
                   <p
                     className={`text-gray-600 clamp-3-lines${expanded ? ' expanded' : ''}`}
                   >
@@ -341,7 +336,7 @@ export default function ProductClient({ product }: ProductClientProps) {
             </Button>
           </div>
 
- 
+
           {/* Additional Info */}
           <div className="border-t pt-6 space-y-4 text-sm text-gray-600">
             <p>• Free shipping on orders over $50</p>
