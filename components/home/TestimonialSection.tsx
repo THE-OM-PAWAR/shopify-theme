@@ -6,49 +6,54 @@ import { Star, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 const testimonials = [
   {
     id: 1,
-    name: "Sarah Johnson",
+    name: "Neha Sharma",
     role: "Interior Designer",
-    location: "New York",
+    location: "Pune",
     rating: 5,
-    content: "The quality of these products is absolutely exceptional. I've been using them in my client projects for months and they never fail to impress. The attention to detail is remarkable.",
-    avatar: "/testimonials/sarah.jpg"
+    content:
+      "I ordered the Portrait Acrylic Photo Frame for my living room, and it has really transformed the space. The clarity of the acrylic, the finish, everything feels premium. Delivery was faster than expected, and it came very well packed. Very happy with the buy!",
+    avatar: "/testimonials/neha.jpg",
   },
   {
     id: 2,
-    name: "Michael Chen",
-    role: "Home Decor Enthusiast",
-    location: "California",
+    name: "Rahul Verma",
+    role: "Entrepreneur",
+    location: "Jaipur",
     rating: 5,
-    content: "I've purchased several items from this collection and each one has exceeded my expectations. The craftsmanship is outstanding and the customer service is top-notch.",
-    avatar: "/testimonials/michael.jpg"
+    content:
+      "Bought a Custom Nameplate from this store as a gift for my parents’ house. The craftsmanship is top-notch, the edges are smooth, and the inscription turned out exactly as I wanted. Would definitely recommend to anyone looking for stylish yet affordable home decor.",
+    avatar: "/testimonials/rahul.jpg",
   },
   {
     id: 3,
-    name: "Emily Rodriguez",
-    role: "Lifestyle Blogger",
-    location: "Texas",
-    rating: 5,
-    content: "These products have completely transformed my living space. The design is modern yet timeless, and the quality is something you can feel. Highly recommended!",
-    avatar: "/testimonials/emily.jpg"
+    name: "Pooja Reddy",
+    role: "Software Engineer",
+    location: "Hyderabad",
+    rating: 4,
+    content:
+      "The wall clock I got here is more than just functional — it’s a piece of art. The acrylic sheen, the design proportions, it all looks very modern. Also, customer service helped me choose the right size. Totally satisfied.",
+    avatar: "/testimonials/pooja.jpg",
   },
   {
     id: 4,
-    name: "David Thompson",
-    role: "Architect",
-    location: "Chicago",
+    name: "Karan Singh",
+    role: "Cafe Owner",
+    location: "Delhi",
     rating: 5,
-    content: "As an architect, I appreciate both form and function. These products deliver on both fronts beautifully. They're now a staple in my design recommendations.",
-    avatar: "/testimonials/david.jpg"
+    content:
+      "I ordered the photo gallery set for my cafe’s wall, and it’s become a conversation starter among customers. Colours are vivid, the mounting is sturdy, everything aligns well. Worth every rupee!",
+    avatar: "/testimonials/karan.jpg",
   },
   {
     id: 5,
-    name: "Lisa Park",
-    role: "Furniture Store Owner",
-    location: "Seattle",
-    rating: 5,
-    content: "I've been in the furniture business for 15 years, and I can confidently say these are some of the finest products I've seen. My customers love them!",
-    avatar: "/testimonials/lisa.jpg"
-  }
+    name: "Aisha Khan",
+    role: "Marketing Manager",
+    location: "Bengaluru",
+    rating: 4,
+    content:
+      "Excellent quality and attention to detail. The custom nameplate I bought didn’t just arrive exactly as shown in pictures, but even better. Had a small issue with shipping, but support resolved it quickly. Great overall experience.",
+    avatar: "/testimonials/aisha.jpg",
+  },
 ];
 
 export default function TestimonialSection() {
