@@ -3,11 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCustomerStore } from '@/lib/customer-store';
-import { Package, ArrowLeft, ShoppingBag, Calendar, Clock, DollarSign, AlertCircle, RefreshCw, Pause, Play, Loader2 } from 'lucide-react';
+import { Package, ArrowLeft, ShoppingBag, Calendar, Clock, DollarSign, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { useDataAutoRefresh } from '@/hooks/use-auto-refresh';
 
 interface Order {
   id: string;
@@ -35,20 +34,6 @@ export default function OrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Auto-refresh functionality
-  const { refresh, start, stop, isActive, isRefreshing, lastRefresh, nextRefresh } = useDataAutoRefresh(
-    async () => {
-      if (customer) {
-        await fetchOrders(true); // Silent refresh
-      }
-    },
-    {
-      enabled: !!customer && isAuthenticated, // Only enable when authenticated
-      refreshOnMount: false,
-      pauseWhenHidden: true
-    }
-  );
-
   useEffect(() => {
     // Redirect if not authenticated
     if (_hasHydrated && !isAuthenticated) {
@@ -62,7 +47,7 @@ export default function OrdersPage() {
     }
   }, [isAuthenticated, _hasHydrated, customer, router]);
 
-  const fetchOrders = async (silent = false) => {
+  const fetchOrders = async () => {
     if (!customer) return;
     
     setIsLoading(true);
@@ -85,16 +70,10 @@ export default function OrdersPage() {
 
       const data = await response.json();
       setOrders(data.orders || []);
-      
-      if (!silent) {
-        toast.success('Orders updated');
-      }
     } catch (error) {
       console.error('Error fetching orders:', error);
       setError(error instanceof Error ? error.message : 'Failed to fetch orders');
-      if (!silent) {
-        toast.error('Failed to load orders. Please try again.');
-      }
+      toast.error('Failed to load orders. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -165,77 +144,6 @@ export default function OrdersPage() {
           <p className="text-gray-600">
             {customer.firstName} {customer.lastName} · {customer.email}
           </p>
-        )}
-        
-        {/* Auto-refresh Controls */}
-        {orders.length > 0 && (
-          <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2">
-                  {isActive ? (
-                    <div className="flex items-center text-green-600">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-                      <span className="text-sm font-medium">Auto-refresh active</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-gray-500">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
-                      <span className="text-sm font-medium">Auto-refresh paused</span>
-                    </div>
-                  )}
-                </div>
-                
-                {lastRefresh && (
-                  <span className="text-xs text-gray-500">
-                    Last updated: {lastRefresh.toLocaleTimeString()}
-                  </span>
-                )}
-                
-                {nextRefresh && isActive && (
-                  <span className="text-xs text-gray-500">
-                    Next update: {nextRefresh.toLocaleTimeString()}
-                  </span>
-                )}
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={refresh}
-                  disabled={isRefreshing}
-                  className="text-xs"
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                  ) : (
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                  )}
-                  Refresh Now
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={isActive ? stop : start}
-                  className="text-xs"
-                >
-                  {isActive ? (
-                    <>
-                      <Pause className="h-3 w-3 mr-1" />
-                      Pause
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-3 w-3 mr-1" />
-                      Resume
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
         )}
       </div>
 

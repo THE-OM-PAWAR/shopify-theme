@@ -4,10 +4,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Package, Truck, Calendar, Clock, CheckCircle, AlertCircle, Loader2, ArrowLeft, DollarSign, RefreshCw, Pause, Play } from 'lucide-react';
+import { Package, Truck, Calendar, Clock, CheckCircle, AlertCircle, Loader2, ArrowLeft, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { useOrderAutoRefresh } from '@/hooks/use-auto-refresh';
 
 interface TrackingDetails {
   order: {
@@ -63,27 +62,11 @@ export default function OrderTrackingPage() {
   const [trackingDetails, setTrackingDetails] = useState<TrackingDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Auto-refresh functionality
-  const { refresh, start, stop, isActive, isRefreshing, lastRefresh, nextRefresh } = useOrderAutoRefresh(
-    async () => {
-      if (orderNumber && email && trackingDetails) {
-        await handleTrackOrder(new Event('submit') as any, true); // Silent refresh
-      }
-    },
-    trackingDetails?.order?.financial_status,
-    trackingDetails?.order?.fulfillment_status,
-    {
-      enabled: !!trackingDetails, // Only enable auto-refresh when we have tracking details
-      refreshOnMount: false,
-      pauseWhenHidden: true
-    }
-  );
-
-  const handleTrackOrder = async (e: React.FormEvent, silent = false) => {
+  const handleTrackOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!orderNumber || !email) {
-      if (!silent) toast.error('Please enter both order number and email');
+      toast.error('Please enter both order number and email');
       return;
     }
 
@@ -109,16 +92,10 @@ export default function OrderTrackingPage() {
 
       const data = await response.json();
       setTrackingDetails(data);
-      
-      if (!silent) {
-        toast.success('Order tracking updated');
-      }
     } catch (error) {
       console.error('Error tracking order:', error);
       setError(error instanceof Error ? error.message : 'Failed to track order');
-      if (!silent) {
-        toast.error('Failed to find your order. Please check your details and try again.');
-      }
+      toast.error('Failed to find your order. Please check your details and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -251,75 +228,6 @@ export default function OrderTrackingPage() {
 
       {trackingDetails && (
         <div className="space-y-8">
-          {/* Auto-refresh Controls */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center space-x-2">
-                  {isActive ? (
-                    <div className="flex items-center text-green-600">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mr-2"></div>
-                      <span className="text-sm font-medium">Auto-refresh active</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-gray-500">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full mr-2"></div>
-                      <span className="text-sm font-medium">Auto-refresh paused</span>
-                    </div>
-                  )}
-                </div>
-                
-                {lastRefresh && (
-                  <span className="text-xs text-gray-500">
-                    Last updated: {lastRefresh.toLocaleTimeString()}
-                  </span>
-                )}
-                
-                {nextRefresh && isActive && (
-                  <span className="text-xs text-gray-500">
-                    Next update: {nextRefresh.toLocaleTimeString()}
-                  </span>
-                )}
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={refresh}
-                  disabled={isRefreshing}
-                  className="text-xs"
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                  ) : (
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                  )}
-                  Refresh Now
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={isActive ? stop : start}
-                  className="text-xs"
-                >
-                  {isActive ? (
-                    <>
-                      <Pause className="h-3 w-3 mr-1" />
-                      Pause
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-3 w-3 mr-1" />
-                      Resume
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
             <div className="bg-gray-50 px-6 py-4 border-b">
               <div className="flex flex-wrap justify-between items-center gap-2">
