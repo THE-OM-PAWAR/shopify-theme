@@ -4,12 +4,20 @@ export async function POST(request: NextRequest) {
   try {
     const { email, firstName, lastName, phone, sessionId } = await request.json();
 
+    console.log('Registration request received:', { email, firstName, lastName, phone });
+
     if (!email || !firstName || !lastName) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      console.error('Missing required fields:', { email: !!email, firstName: !!firstName, lastName: !!lastName });
+      return NextResponse.json({ 
+        error: 'Missing required fields',
+        details: 'Email, first name, and last name are required'
+      }, { status: 400 });
     }
 
     // Note: The OTP verification is already done in the verify-otp endpoint
     // By the time we get to this endpoint, the user has already verified their email with OTP
+
+    console.log('Attempting to create customer...');
 
     // Create customer in Shopify using Admin API
     const customer = await createCustomer({
@@ -19,16 +27,29 @@ export async function POST(request: NextRequest) {
       phone: phone || '',
     });
 
+    console.log('Customer creation result:', customer ? 'Success' : 'Failed');
+
     if (!customer) {
-      return NextResponse.json({ error: 'Failed to create customer' }, { status: 500 });
+      return NextResponse.json({ 
+        error: 'Failed to create customer',
+        details: 'Customer creation returned null. Check server logs for more details.'
+      }, { status: 500 });
     }
+
+    console.log('Generating customer access token...');
 
     // Generate a customer access token
     const accessToken = await generateCustomerAccessToken(customer.id);
       
     if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to generate access token' }, { status: 500 });
+      console.error('Failed to generate access token for customer:', customer.id);
+      return NextResponse.json({ 
+        error: 'Failed to generate access token',
+        details: 'Customer was created but access token generation failed'
+      }, { status: 500 });
     }
+
+    console.log('Registration completed successfully for:', email);
 
     return NextResponse.json({
       success: true,
@@ -37,9 +58,31 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error registering user:', error);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to register user';
+    let errorDetails = 'Unknown error';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorDetails = error.message;
+      
+      // Check for specific error types
+      if (error.message.includes('Shopify credentials')) {
+        errorMessage = 'Configuration Error';
+        errorDetails = 'Shopify credentials are not properly configured. Please contact support.';
+      } else if (error.message.includes('Shopify API Error')) {
+        errorMessage = 'Shopify API Error';
+        errorDetails = error.message;
+      } else if (error.message.includes('email')) {
+        errorMessage = 'Email Error';
+        errorDetails = 'There was an issue with the email address. Please try again.';
+      }
+    }
+    
     return NextResponse.json({ 
-      error: 'Failed to register user',
-      details: error instanceof Error ? error.message : 'Unknown error'
+      error: errorMessage,
+      details: errorDetails
     }, { status: 500 });
   }
 }
@@ -55,13 +98,35 @@ async function createCustomer({ email, firstName, lastName, phone }: {
     const shopifyDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
     const accessToken = process.env.SHOPIFY_ADMIN_ACCESS_TOKEN;
 
+    console.log('Creating customer with data:', { email, firstName, lastName, phone });
+    console.log('Shopify Domain:', shopifyDomain ? 'Set' : 'Missing');
+    console.log('Access Token:', accessToken ? 'Set' : 'Missing');
+
     if (!shopifyDomain || !accessToken) {
-      console.error('Shopify credentials missing');
-      return null;
+      console.error('Shopify credentials missing:', {
+        domain: !!shopifyDomain,
+        token: !!accessToken
+      });
+      throw new Error('Shopify credentials are not configured properly. Please check your environment variables.');
     }
 
     // Generate a random password for the customer
     const password = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+
+    const customerData = {
+      customer: {
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: phone,
+        verified_email: true, // Since we verified with OTP
+        password: password,
+        password_confirmation: password,
+        send_email_welcome: false, // We'll handle our own welcome email
+      }
+    };
+
+    console.log('Sending request to Shopify API...');
 
     // Create customer using Admin API
     const response = await fetch(
@@ -72,35 +137,53 @@ async function createCustomer({ email, firstName, lastName, phone }: {
           'Content-Type': 'application/json',
           'X-Shopify-Access-Token': accessToken,
         },
-        body: JSON.stringify({
-          customer: {
-            first_name: firstName,
-            last_name: lastName,
-            email: email,
-            phone: phone,
-            verified_email: true, // Since we verified with OTP
-            password: password,
-            password_confirmation: password,
-            send_email_welcome: false, // We'll handle our own welcome email
-          }
-        }),
+        body: JSON.stringify(customerData),
       }
     );
 
+    console.log('Shopify API response status:', response.status);
+
     if (!response.ok) {
-      console.error('Shopify API error:', response.status, await response.text());
-      return null;
+      const errorText = await response.text();
+      console.error('Shopify API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      
+      // Try to parse the error response
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.errors) {
+          throw new Error(`Shopify API Error: ${JSON.stringify(errorData.errors)}`);
+        }
+      } catch (parseError) {
+        // If we can't parse the error, use the raw text
+        throw new Error(`Shopify API Error (${response.status}): ${errorText}`);
+      }
+      
+      throw new Error(`Shopify API Error (${response.status}): ${errorText}`);
     }
 
     const result = await response.json();
+    console.log('Shopify API response:', result);
+    
     const shopifyCustomer = result.customer;
 
     if (!shopifyCustomer) {
-      return null;
+      console.error('No customer data returned from Shopify API');
+      throw new Error('No customer data returned from Shopify API');
     }
 
-    // Send welcome email using Shopify Admin API
-    await sendWelcomeEmail(email, firstName);
+    console.log('Customer created successfully:', shopifyCustomer.id);
+
+    // Send welcome email using Shopify Admin API (optional, don't fail if this fails)
+    try {
+      await sendWelcomeEmail(email, firstName);
+    } catch (emailError) {
+      console.warn('Failed to send welcome email:', emailError);
+      // Don't fail the entire process if email fails
+    }
 
     // Format customer data to match our application's structure
     return {
@@ -115,7 +198,7 @@ async function createCustomer({ email, firstName, lastName, phone }: {
     };
   } catch (error) {
     console.error('Error creating customer:', error);
-    return null;
+    throw error; // Re-throw to be handled by the calling function
   }
 }
 

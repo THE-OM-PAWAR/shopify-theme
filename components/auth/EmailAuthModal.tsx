@@ -114,7 +114,7 @@ export function EmailAuthModal({ isOpen, onClose, initialEmail = '', onAuthSucce
         } else {
           // If existing user, log them in
           setCustomer(data.customer, data.accessToken);
-          toast.success(`Welcome back, ${data.customer.firstName}!`);
+          // toast.success(`Welcome back, ${data.customer.firstName}!`);
           onClose();
           // Call onAuthSuccess callback if provided
           if (onAuthSuccess) {
