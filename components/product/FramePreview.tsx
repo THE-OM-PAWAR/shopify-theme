@@ -294,7 +294,7 @@ export default function FramePreview({
         ref={canvasRef}
         width={width}
         height={height}
-        className="rounded-lg shadow-sm border border-gray-200"
+        className="rounded-lg shadow-sm border border-gray-200 pointer-events-none"
         style={{ maxWidth: '100%', height: 'auto' }}
       />
       

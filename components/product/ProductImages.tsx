@@ -120,12 +120,16 @@ export default function ProductImages({
     );
   }
 
-  const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  const nextImage = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setCurrentImageIndex((prev) => (prev + 1) % allImages.length);
   };
 
-  const previousImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  const previousImage = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setCurrentImageIndex((prev) => (prev - 1 + allImages.length) % allImages.length);
   };
 
   // Create combined images array with frame preview first if available
@@ -145,7 +149,7 @@ export default function ProductImages({
       <div className="relative 
        aspect-[2/3] bg-gray-100 rounded-lg overflow-hidden">
         {allImages[currentImageIndex].url === 'frame-preview' ? (
-          <div className="w-full h-full flex items-center justify-center p-0">
+          <div className="w-full h-full flex items-center justify-center p-0 relative">
             <FramePreview
               productId={productId!}
               frameCoverUrl={frameCoverUrl}
@@ -154,7 +158,7 @@ export default function ProductImages({
               variantIndex={currentVariantIndex}
               width={800}
               height={1200}
-              className="max-w-full max-h-full"
+              className="max-w-full max-h-full pointer-events-none"
             />
           </div>
         ) : (
@@ -173,16 +177,16 @@ export default function ProductImages({
             <Button
               variant="ghost"
               size="sm"
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white"
-              onClick={previousImage}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white z-10 pointer-events-auto"
+              onClick={(e) => previousImage(e)}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
               size="sm"
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white"
-              onClick={nextImage}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white z-10 pointer-events-auto"
+              onClick={(e) => nextImage(e)}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -191,7 +195,7 @@ export default function ProductImages({
       </div>
 
       {/* Thumbnail Images */}
-      {allImages.length > 1 && (
+      {/* {allImages.length > 1 && (
         <div className="grid grid-cols-6 gap-2">
           {allImages.map((image, index) => (
             <button
@@ -227,7 +231,7 @@ export default function ProductImages({
             </button>
           ))}
         </div>
-      )}
+      )} */}
     </div>
   );
 }
