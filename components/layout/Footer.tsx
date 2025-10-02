@@ -15,19 +15,19 @@ export default function Footer() {
       title: 'Support',
       links: [
         { name: 'FAQ', href: '/faq' },
-        { name: 'Shipping', href: '/shipping' },
+        { name: 'Shipping', href: '/shipping-policy' },
         { name: 'Refunds', href: '/refund-policy' },
       ],
     },
-    {
-      title: 'Company',
-      links: [
-        { name: 'About Us', href: '/about' },
-        { name: 'Careers', href: '/careers' },
-        { name: 'Press', href: '/press' },
-        { name: 'Sustainability', href: '/sustainability' },
-      ],
-    },
+    // {
+    //   title: 'Company',
+    //   links: [
+    //     { name: 'About Us', href: '/about' },
+    //     { name: 'Careers', href: '/careers' },
+    //     { name: 'Press', href: '/press' },
+    //     { name: 'Sustainability', href: '/sustainability' },
+    //   ],
+    // },
   ];
 
   return (
@@ -82,7 +82,7 @@ export default function Footer() {
             <a href="/privacy-policy" className="text-gray-400 hover:text-white text-sm transition-colors duration-200">
               Privacy Policy
             </a>
-            <a href="/terms" className="text-gray-400 hover:text-white text-sm transition-colors duration-200">
+            <a href="/terms-of-service" className="text-gray-400 hover:text-white text-sm transition-colors duration-200">
               Terms of Service
             </a>
           </div>
