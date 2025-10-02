@@ -107,35 +107,38 @@ export default function HeroBanner() {
             />
             
             {/* Overlay */}
-            <div className="absolute inset-0 bg-black/20" />
+            <div className="absolute inset-0 bg-black/40" />
             
-            <div className="relative h-full flex items-center justify-center">
-              <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-white">
+            <div className="relative h-full flex items-end justify-start">
+              <div className="max-w-lg mx-4 sm:mx-6 lg:mx-8 mb-16 text-left text-white">
                 <div className={`transition-all duration-1000 delay-300 ${
                   index === currentSlide 
-                    ? 'opacity-100' 
-                    : 'opacity-0'
+                    ? 'opacity-100 translate-y-0' 
+                    : 'opacity-0 translate-y-4'
                 }`}>
-                  <p className="text-sm font-medium tracking-wider uppercase mb-4 text-white/80">
-                    {slide.subtitle}
-                  </p>
-                  <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
-                    {slide.title}
-                  </h1>
-                  <p className="text-lg md:text-xl mb-8 max-w-2xl mx-auto text-white/90 leading-relaxed">
-                    {slide.description}
-                  </p>
-                  <Button
-                    asChild
-                    size="lg"
-                    className="bg-white text-gray-900 hover:bg-gray-100 px-8 py-4 text-lg font-semibold rounded-full transition-all duration-300 hover:scale-105"
-                  >
-                    <Link
-                      href={slide.href}
+                  {/* Text container with enhanced background for better readability */}
+                  <div className="bg-black/30 backdrop-blur-sm rounded-2xl p-6 md:p-8 border border-white/10">
+                    <p className="text-xs font-medium tracking-wider uppercase mb-3 text-white drop-shadow-lg">
+                      {slide.subtitle}
+                    </p>
+                    <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-4 leading-tight text-white drop-shadow-xl">
+                      {slide.title}
+                    </h1>
+                    <p className="text-sm md:text-base mb-6 text-white/95 leading-relaxed drop-shadow-lg">
+                      {slide.description}
+                    </p>
+                    <Button
+                      asChild
+                      size="default"
+                      className="bg-white text-gray-900 hover:bg-gray-100 px-6 py-2 text-sm font-semibold rounded-full transition-all duration-300 hover:scale-105 shadow-xl"
                     >
-                      {slide.cta}
-                    </Link>
-                  </Button>
+                      <Link
+                        href={slide.href}
+                      >
+                        {slide.cta}
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

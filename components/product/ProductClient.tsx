@@ -8,6 +8,7 @@ import ProductImages from '@/components/product/ProductImages';
 import RecommendedProducts from '@/components/product/RecommendedProducts';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
+import TestimonialSection from '../home/TestimonialSection';
 
 interface ProductClientProps {
   product: ShopifyProduct;
@@ -344,6 +345,11 @@ export default function ProductClient({ product }: ProductClientProps) {
             <p>• Secure checkout with SSL encryption</p>
           </div>
         </div>
+      </div>
+
+      {/* Reviews */}
+      <div className="mt-16">
+        <TestimonialSection />
       </div>
 
       {/* Recommended Products */}

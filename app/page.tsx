@@ -117,11 +117,11 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Instagram Reels */}
-      <InstagramReelsSection />
-
       {/* Testimonials */}
       <TestimonialSection />
+
+      {/* Instagram Reels */}
+      <InstagramReelsSection />
 
       {/* Newsletter */}
       <NewsletterSection />
