@@ -123,8 +123,6 @@ export default async function HomePage() {
       {/* Instagram Reels */}
       <InstagramReelsSection />
 
-      {/* Newsletter */}
-      <NewsletterSection />
     </div>
   );
 }

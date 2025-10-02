@@ -9,17 +9,14 @@ export default function Footer() {
       links: [
         { name: 'All Products', href: '/products' },
         { name: 'Collections', href: '/collections' },
-        { name: 'New Arrivals', href: '/collections/new-arrivals' },
-        { name: 'Sale', href: '/collections/sale' },
       ],
     },
     {
       title: 'Support',
       links: [
-        { name: 'Contact Us', href: '/contact' },
         { name: 'FAQ', href: '/faq' },
         { name: 'Shipping', href: '/shipping' },
-        { name: 'Returns', href: '/returns' },
+        { name: 'Refunds', href: '/refund-policy' },
       ],
     },
     {
@@ -82,7 +79,7 @@ export default function Footer() {
             © {currentYear} Storefront. All rights reserved.
           </p>
           <div className="flex space-x-8 mt-4 sm:mt-0">
-            <a href="/privacy" className="text-gray-400 hover:text-white text-sm transition-colors duration-200">
+            <a href="/privacy-policy" className="text-gray-400 hover:text-white text-sm transition-colors duration-200">
               Privacy Policy
             </a>
             <a href="/terms" className="text-gray-400 hover:text-white text-sm transition-colors duration-200">
