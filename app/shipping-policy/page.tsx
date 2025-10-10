@@ -15,7 +15,7 @@ export default function ShippingPolicyPage() {
             <div className="text-4xl mb-4">📦</div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Shipping Policy</h1>
             <p className="text-gray-600">
-              <strong>Effective Date:</strong> [10th October 2025]
+              <strong>Effective Date:</strong> 10th October 2025
             </p>
           </div>
 
@@ -233,7 +233,7 @@ export default function ShippingPolicyPage() {
                       </svg>
                       <span className="font-semibold text-gray-900">Phone</span>
                     </div>
-                    <p className="text-gray-600 text-sm">[+91 9358611776]</p>
+                    <p className="text-gray-600 text-sm">+91 9358611776</p>
                   </div>
                   
                   <div className="bg-white rounded-lg p-4 shadow-sm">
